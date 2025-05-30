@@ -1,13 +1,13 @@
+import './globals.css';
 import { Toaster } from 'sonner';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ConvexAuthNextjsServerProvider } from '@convex-dev/auth/nextjs/server';
 
-import './globals.css';
-import { SessionProvider } from 'next-auth/react';
+import { ConvexClientProvider } from '@/components/ConvexClientProvider';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://chat.vercel.ai'),
   title: 'Next.js Chatbot Template',
   description: 'Next.js chatbot template using the AI SDK.',
 };
@@ -71,15 +71,19 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Toaster position="top-center" />
-          <SessionProvider>{children}</SessionProvider>
-        </ThemeProvider>
+        <ConvexAuthNextjsServerProvider>
+          <ConvexClientProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <Toaster position="top-center" />
+              {children}
+            </ThemeProvider>
+          </ConvexClientProvider>
+        </ConvexAuthNextjsServerProvider>
       </body>
     </html>
   );

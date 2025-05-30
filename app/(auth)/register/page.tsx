@@ -9,10 +9,11 @@ import { SubmitButton } from '@/components/submit-button';
 
 import { register, type RegisterActionState } from '../actions';
 import { toast } from '@/components/toast';
-import { useSession } from 'next-auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 
 export default function Page() {
   const router = useRouter();
+  const { signIn } = useAuthActions();
 
   const [email, setEmail] = useState('');
   const [isSuccessful, setIsSuccessful] = useState(false);
@@ -23,9 +24,6 @@ export default function Page() {
       status: 'idle',
     },
   );
-
-  const { update: updateSession } = useSession();
-
   useEffect(() => {
     if (state.status === 'user_exists') {
       toast({ type: 'error', description: 'Account already exists!' });
@@ -36,11 +34,12 @@ export default function Page() {
         type: 'error',
         description: 'Failed validating your submission!',
       });
-    } else if (state.status === 'success') {
+    } else if (state.status === 'success' && state.data) {
       toast({ type: 'success', description: 'Account created successfully!' });
+      
+      void signIn('password', state.data);
 
       setIsSuccessful(true);
-      updateSession();
       router.refresh();
     }
   }, [state]);
@@ -59,7 +58,7 @@ export default function Page() {
             Create an account with your email and password
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <AuthForm action={handleSubmit} defaultEmail={email} flow='signUp'>
           <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
           <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
             {'Already have an account? '}

@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 
-import { auth } from '@/app/(auth)/auth';
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
@@ -16,22 +15,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!chat) {
     notFound();
-  }
-
-  const session = await auth();
-
-  if (!session) {
-    redirect('/api/auth/guest');
-  }
-
-  if (chat.visibility === 'private') {
-    if (!session.user) {
-      return notFound();
-    }
-
-    if (session.user.id !== chat.userId) {
-      return notFound();
-    }
   }
 
   const messagesFromDb = await getMessagesByChatId({
@@ -62,8 +45,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           initialMessages={convertToUIMessages(messagesFromDb)}
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialVisibilityType={chat.visibility}
-          isReadonly={session?.user?.id !== chat.userId}
-          session={session}
+          isReadonly={false} // Todo: change this to take into account people viewing the thread
           autoResume={true}
         />
         <DataStreamHandler id={id} />
@@ -78,8 +60,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         initialMessages={convertToUIMessages(messagesFromDb)}
         initialChatModel={chatModelFromCookie.value}
         initialVisibilityType={chat.visibility}
-        isReadonly={session?.user?.id !== chat.userId}
-        session={session}
+        isReadonly={false}
         autoResume={true}
       />
       <DataStreamHandler id={id} />

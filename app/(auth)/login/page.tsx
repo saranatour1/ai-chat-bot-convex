@@ -1,5 +1,4 @@
-'use client';
-
+'use client'; //why?
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
@@ -9,13 +8,13 @@ import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
 
 import { login, type LoginActionState } from '../actions';
-import { useSession } from 'next-auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 
 export default function Page() {
   const router = useRouter();
-
   const [email, setEmail] = useState('');
   const [isSuccessful, setIsSuccessful] = useState(false);
+  const {signIn} = useAuthActions()
 
   const [state, formAction] = useActionState<LoginActionState, FormData>(
     login,
@@ -23,8 +22,6 @@ export default function Page() {
       status: 'idle',
     },
   );
-
-  const { update: updateSession } = useSession();
 
   useEffect(() => {
     if (state.status === 'failed') {
@@ -37,9 +34,10 @@ export default function Page() {
         type: 'error',
         description: 'Failed validating your submission!',
       });
-    } else if (state.status === 'success') {
+    } else if (state.status === 'success' && state.data) {
+      console.log(state.data)
+      void signIn('password', state.data)
       setIsSuccessful(true);
-      updateSession();
       router.refresh();
     }
   }, [state.status]);
@@ -58,7 +56,7 @@ export default function Page() {
             Use your email and password to sign in
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <AuthForm action={handleSubmit} defaultEmail={email} flow='signIn'>
           <SubmitButton isSuccessful={isSuccessful}>Sign in</SubmitButton>
           <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
             {"Don't have an account? "}

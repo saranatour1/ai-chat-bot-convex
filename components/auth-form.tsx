@@ -7,12 +7,14 @@ export function AuthForm({
   action,
   children,
   defaultEmail = '',
+  flow="signIn"
 }: {
   action: NonNullable<
     string | ((formData: FormData) => void | Promise<void>) | undefined
   >;
   children: React.ReactNode;
   defaultEmail?: string;
+  flow:"signIn"|"signUp"
 }) {
   return (
     <Form action={action} className="flex flex-col gap-4 px-4 sm:px-16">
@@ -53,7 +55,7 @@ export function AuthForm({
           required
         />
       </div>
-
+      <input name="flow" type="hidden" value={flow} />
       {children}
     </Form>
   );
