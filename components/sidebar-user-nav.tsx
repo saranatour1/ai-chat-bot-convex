@@ -25,10 +25,9 @@ import { guestRegex } from '@/lib/constants';
 
 export function SidebarUserNav({ user }: { user: User }) {
   const router = useRouter();
-  const { data, status } = useSession();
   const { setTheme, theme } = useTheme();
 
-  const isGuest = guestRegex.test(data?.user?.email ?? '');
+  // const isGuest = guestRegex.test(data?.user?.email ?? '');
 
   return (
     <SidebarMenu>
@@ -60,7 +59,8 @@ export function SidebarUserNav({ user }: { user: User }) {
                   className="rounded-full"
                 />
                 <span data-testid="user-email" className="truncate">
-                  {isGuest ? 'Guest' : user?.email}
+                  {/* {"" ? 'Guest' : user?.email} */}
+                  Guest
                 </span>
                 <ChevronUp className="ml-auto" />
               </SidebarMenuButton>
@@ -94,7 +94,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                     return;
                   }
 
-                  if (isGuest) {
+                  if (false) {
                     router.push('/login');
                   } else {
                     signOut({
