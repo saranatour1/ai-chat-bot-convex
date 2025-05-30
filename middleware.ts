@@ -3,8 +3,8 @@ import {
   createRouteMatcher,
 } from '@convex-dev/auth/nextjs/server';
 
-const isSignInPage = createRouteMatcher(['/']);
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)']);
+const isSignInPage = createRouteMatcher(['/login','/register']);
+const isProtectedRoute = createRouteMatcher(['/chat(.*)']);
 
 export default convexAuthNextjsMiddleware(async (request) => {
 
@@ -16,7 +16,6 @@ export const config = {
   matcher: [
     '/',
     '/chat/:id',
-    '/api/:path*',
     '/login',
     '/register',
     '/((?!.*\\..*|_next).*)',
