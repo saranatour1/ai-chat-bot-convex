@@ -55,7 +55,6 @@ export const register = async (
       password: formData.get('password'),
       flow:formData.get("flow")
     });
-    console.log(formData)
     return { status: 'success' ,data:formData};
   } catch (error) {
     if (error instanceof z.ZodError) {

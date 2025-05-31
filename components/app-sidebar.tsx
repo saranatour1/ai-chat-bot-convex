@@ -17,11 +17,14 @@ import {
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@convex-dev/auth/server';
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar() {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-
+  const user = useQuery(api.users.index.viewer)
   return (
     <Sidebar className="group-data-[side=left]:border-r-0">
       <SidebarHeader>
@@ -59,9 +62,9 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarHistory user={user} />
+        {user && <SidebarHistory user={user} />}
       </SidebarContent>
-      {/* <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter> */}
+      <SidebarFooter><SidebarUserNav user={user as Doc<"users">} /></SidebarFooter>
     </Sidebar>
   );
 }

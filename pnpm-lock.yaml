@@ -32,6 +32,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.35.3
         version: 6.36.4
+      '@convex-dev/agent':
+        specifier: ^0.1.3
+        version: 0.1.3(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.3(react@19.1.0))(react@19.1.0)
       '@convex-dev/auth':
         specifier: ^0.0.86
         version: 0.0.86(@auth/core@0.37.0)(convex@1.24.3(react@19.1.0))(react@19.1.0)
@@ -441,6 +444,17 @@ packages:
 
   '@codemirror/view@6.36.4':
     resolution: {integrity: sha512-ZQ0V5ovw/miKEXTvjgzRyjnrk9TwriUB1k4R5p7uNnHR9Hus+D1SXHGdJshijEzPFjU25xea/7nhIeSqYFKdbA==}
+
+  '@convex-dev/agent@0.1.3':
+    resolution: {integrity: sha512-VKigYZdKsYRfy/Q4HFRk3wSmpLCrsnSQpkljkmYSjcU19Q+Zw+AIu0CceST58xnBYEDFhWJl8CP+9SmLk/UjWg==}
+    peerDependencies:
+      ai: ^4.3.4
+      convex: ^1.23.0
+      convex-helpers: ^0.1.78
+      react: ^18.3.1 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@convex-dev/auth@0.0.86':
     resolution: {integrity: sha512-2vgoy2S9cXKZwQBBly8u1QnFjH9Dfpk1w6fEraAhhhKuxh1AzV3QgFshJ2fAcZPvil8nXfzyM9LOXf/8u4pGRw==}
@@ -2449,6 +2463,28 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  convex-helpers@0.1.89:
+    resolution: {integrity: sha512-G/rfndoWBAChChDe6d1UTD27YadwTi0vzZrwy59gERCnumFVOJVS6VItMmlVr4yCOTXZwd69YEVbVoP8BvssJw==}
+    hasBin: true
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      convex: ^1.13.0
+      hono: ^4.0.5
+      react: ^17.0.2 || ^18.0.0 || ^19.0.0
+      typescript: ^5.5
+      zod: ^3.22.4
+    peerDependenciesMeta:
+      '@standard-schema/spec':
+        optional: true
+      hono:
+        optional: true
+      react:
+        optional: true
+      typescript:
+        optional: true
+      zod:
+        optional: true
 
   convex@1.24.3:
     resolution: {integrity: sha512-ybi+eKf8pGPJKtu7axjkLydmYfxvKfa/jHdnXN4IAjaI/TOAhPx9CrsV9TEHm+Mp4VU7pFbbbtZOrxN0KLn/kA==}
@@ -4643,6 +4679,14 @@ snapshots:
       style-mod: 4.1.2
       w3c-keyname: 2.2.8
 
+  '@convex-dev/agent@0.1.3(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.3(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      ai: 4.3.13(react@19.1.0)(zod@3.24.2)
+      convex: 1.24.3(react@19.1.0)
+      convex-helpers: 0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2)
+    optionalDependencies:
+      react: 19.1.0
+
   '@convex-dev/auth@0.0.86(@auth/core@0.37.0)(convex@1.24.3(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@auth/core': 0.37.0
@@ -6245,6 +6289,14 @@ snapshots:
   comma-separated-tokens@2.0.3: {}
 
   concat-map@0.0.1: {}
+
+  convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2):
+    dependencies:
+      convex: 1.24.3(react@19.1.0)
+    optionalDependencies:
+      react: 19.1.0
+      typescript: 5.8.2
+      zod: 3.24.2
 
   convex@1.24.3(react@19.1.0):
     dependencies:
