@@ -23,34 +23,37 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import type { Chat } from '@/lib/db/schema';
-import { fetcher } from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
-import useSWRInfinite from 'swr/infinite';
 import { LoaderIcon } from './icons';
+import { useAction, usePaginatedQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
+// biome-ignore lint/style/useImportType: <explanation>
+import { Thread, ThreadDoc } from '@convex-dev/agent';
 
 type GroupedChats = {
-  today: Chat[];
-  yesterday: Chat[];
-  lastWeek: Chat[];
-  lastMonth: Chat[];
-  older: Chat[];
+  today: ThreadDoc[];
+  yesterday: ThreadDoc[];
+  lastWeek: ThreadDoc[];
+  lastMonth: ThreadDoc[];
+  older: ThreadDoc[];
 };
 
 export interface ChatHistory {
-  chats: Array<Chat>;
+  chats: Array<ThreadDoc>;
   hasMore: boolean;
 }
 
 const PAGE_SIZE = 20;
 
-const groupChatsByDate = (chats: Chat[]): GroupedChats => {
+const groupChatsByDate = (chats: ThreadDoc[]): GroupedChats => {
   const now = new Date();
   const oneWeekAgo = subWeeks(now, 1);
   const oneMonthAgo = subMonths(now, 1);
 
   return chats.reduce(
     (groups, chat) => {
-      const chatDate = new Date(chat.createdAt);
+      const chatDate = new Date(chat._creationTime);
 
       if (isToday(chatDate)) {
         groups.today.push(chat);
@@ -93,49 +96,31 @@ export function getChatHistoryPaginationKey(
   return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
 }
 
-export function SidebarHistory({ user }: { user: User | undefined }) {
+export function SidebarHistory({ user }: { user: Doc<"users"> }) {
   const { setOpenMobile } = useSidebar();
   const { id } = useParams();
 
   const {
-    data: paginatedChatHistories,
-    setSize,
-    isValidating,
-    isLoading,
-    mutate,
-  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
-    fallbackData: [],
-  });
+    results: paginatedChatHistories,
+    status,
+    loadMore
+  } = usePaginatedQuery(api.agent.index.listThreadsByUserId, id ? {} : "skip", { initialNumItems: 10 });
 
+  const deleteChat = useAction(api.agent.index.deleteChatHistory)
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const hasReachedEnd = paginatedChatHistories
-    ? paginatedChatHistories.some((page) => page.hasMore === false)
-    : false;
+  const hasReachedEnd = (status !== "CanLoadMore")
 
-  const hasEmptyChatHistory = paginatedChatHistories
-    ? paginatedChatHistories.every((page) => page.chats.length === 0)
-    : false;
+  const hasEmptyChatHistory = paginatedChatHistories.length === 0
 
   const handleDelete = async () => {
-    const deletePromise = fetch(`/api/chat?id=${deleteId}`, {
-      method: 'DELETE',
-    });
+    const deletePromise = deleteChat({threadId:deleteId as string})
 
     toast.promise(deletePromise, {
       loading: 'Deleting chat...',
       success: () => {
-        mutate((chatHistories) => {
-          if (chatHistories) {
-            return chatHistories.map((chatHistory) => ({
-              ...chatHistory,
-              chats: chatHistory.chats.filter((chat) => chat.id !== deleteId),
-            }));
-          }
-        });
-
         return 'Chat deleted successfully';
       },
       error: 'Failed to delete chat',
@@ -160,7 +145,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     );
   }
 
-  if (isLoading) {
+  if (status === "LoadingMore" || status ==="LoadingFirstPage") {
     return (
       <SidebarGroup>
         <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
@@ -208,11 +193,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
           <SidebarMenu>
             {paginatedChatHistories &&
               (() => {
-                const chatsFromHistory = paginatedChatHistories.flatMap(
-                  (paginatedChatHistory) => paginatedChatHistory.chats,
-                );
 
-                const groupedChats = groupChatsByDate(chatsFromHistory);
+                const groupedChats = groupChatsByDate(paginatedChatHistories);
 
                 return (
                   <div className="flex flex-col gap-6">

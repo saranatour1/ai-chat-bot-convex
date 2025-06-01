@@ -8,3 +8,5 @@ export const viewer = query({
 		return await ctx.db.get(userId)
 	},
 });
+
+

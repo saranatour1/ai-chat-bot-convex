@@ -19,6 +19,7 @@
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.2.18",
     "@ai-sdk/react": "^1.2.11",
     "@ai-sdk/xai": "^1.2.15",
     "@auth/core": "0.37.0",
@@ -53,6 +54,7 @@
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
     "convex": "^1.24.3",
+    "convex-helpers": "^0.1.89",
     "date-fns": "^4.1.0",
     "diff-match-patch": "^1.0.5",
     "dotenv": "^16.4.5",

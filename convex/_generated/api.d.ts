@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agent_index from "../agent/index.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as users_index from "../users/index.js";
@@ -27,6 +28,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "agent/index": typeof agent_index;
   auth: typeof auth;
   http: typeof http;
   "users/index": typeof users_index;
