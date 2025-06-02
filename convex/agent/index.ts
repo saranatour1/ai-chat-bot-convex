@@ -67,3 +67,14 @@ export const deleteChatHistory = action({
     });
   },
 });
+
+
+// get current active user thread
+export const viewRunningThread = query({
+  args:{},
+  handler:async(ctx, args_0)=> {
+    const userId = await getAuthUserId(ctx);
+    if(!userId) throw new ConvexError("Not authenticated");
+    
+  },
+})

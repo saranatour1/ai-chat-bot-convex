@@ -1,11 +1,5 @@
 'use client';
 
-import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
-import { useParams, useRouter } from 'next/navigation';
-import type { User } from 'next-auth';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,14 +16,18 @@ import {
   SidebarMenu,
   useSidebar,
 } from '@/components/ui/sidebar';
-import type { Chat } from '@/lib/db/schema';
-import { ChatItem } from './sidebar-history-item';
-import { LoaderIcon } from './icons';
-import { useAction, usePaginatedQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
+import { useAction, usePaginatedQuery } from 'convex/react';
+import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
+import { motion } from 'framer-motion';
+import { useParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { LoaderIcon } from './icons';
+import { ChatItem } from './sidebar-history-item';
 // biome-ignore lint/style/useImportType: <explanation>
-import { Thread, ThreadDoc } from '@convex-dev/agent';
+import { ThreadDoc } from '@convex-dev/agent';
 
 type GroupedChats = {
   today: ThreadDoc[];
@@ -93,7 +91,7 @@ export function getChatHistoryPaginationKey(
 
   if (!firstChatFromPage) return null;
 
-  return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
+  return `/api/history?ending_before=${firstChatFromPage._id}&limit=${PAGE_SIZE}`;
 }
 
 export function SidebarHistory({ user }: { user: Doc<"users"> }) {
@@ -105,6 +103,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
     status,
     loadMore
   } = usePaginatedQuery(api.agent.index.listThreadsByUserId, id ? {} : "skip", { initialNumItems: 10 });
+
 
   const deleteChat = useAction(api.agent.index.deleteChatHistory)
   const router = useRouter();
@@ -145,7 +144,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
     );
   }
 
-  if (status === "LoadingMore" || status ==="LoadingFirstPage") {
+  if ((status === "LoadingMore" || (status === "LoadingFirstPage" && paginatedChatHistories.length>0))) {
     return (
       <SidebarGroup>
         <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
@@ -205,9 +204,9 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
                         </div>
                         {groupedChats.today.map((chat) => (
                           <ChatItem
-                            key={chat.id}
+                            key={chat._id}
                             chat={chat}
-                            isActive={chat.id === id}
+                            isActive={chat._id === id}
                             onDelete={(chatId) => {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
@@ -225,9 +224,9 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
                         </div>
                         {groupedChats.yesterday.map((chat) => (
                           <ChatItem
-                            key={chat.id}
+                            key={chat._id}
                             chat={chat}
-                            isActive={chat.id === id}
+                            isActive={chat._id === id}
                             onDelete={(chatId) => {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
@@ -245,9 +244,9 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
                         </div>
                         {groupedChats.lastWeek.map((chat) => (
                           <ChatItem
-                            key={chat.id}
+                            key={chat._id}
                             chat={chat}
-                            isActive={chat.id === id}
+                            isActive={chat._id === id}
                             onDelete={(chatId) => {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
@@ -265,9 +264,9 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
                         </div>
                         {groupedChats.lastMonth.map((chat) => (
                           <ChatItem
-                            key={chat.id}
+                            key={chat._id}
                             chat={chat}
-                            isActive={chat.id === id}
+                            isActive={chat._id === id}
                             onDelete={(chatId) => {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
@@ -285,9 +284,9 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
                         </div>
                         {groupedChats.older.map((chat) => (
                           <ChatItem
-                            key={chat.id}
+                            key={chat._id}
                             chat={chat}
-                            isActive={chat.id === id}
+                            isActive={chat._id === id}
                             onDelete={(chatId) => {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
@@ -302,13 +301,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
               })()}
           </SidebarMenu>
 
-          <motion.div
-            onViewportEnter={() => {
-              if (!isValidating && !hasReachedEnd) {
-                setSize((size) => size + 1);
-              }
-            }}
-          />
+          <motion.div />
 
           {hasReachedEnd ? (
             <div className="px-2 text-zinc-500 w-full flex flex-row justify-center items-center text-sm gap-2 mt-8">
