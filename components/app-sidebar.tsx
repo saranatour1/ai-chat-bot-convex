@@ -1,6 +1,5 @@
 'use client';
 
-import type { User } from 'next-auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -15,11 +14,11 @@ import {
   SidebarMenu,
   useSidebar,
 } from '@/components/ui/sidebar';
-import Link from 'next/link';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@convex-dev/auth/server';
+import { useQuery } from 'convex/react';
+import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 export function AppSidebar() {
   const router = useRouter();

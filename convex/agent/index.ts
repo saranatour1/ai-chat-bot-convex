@@ -9,7 +9,7 @@ import { ConvexError, v } from 'convex/values';
 import { components } from '../_generated/api';
 import { action, query } from '../_generated/server';
 
-const mainAgent = new Agent(components.agent, {
+export const mainAgent = new Agent(components.agent, {
   name: 'Idea Manager Agent',
   chat: google.chat('gemini-2.5-flash-preview-04-17'),
   textEmbedding: google.textEmbeddingModel(`text-embedding-004`),
@@ -41,6 +41,14 @@ export const listThreadsByUserId = query({
     return threads;
   },
 });
+
+export const getThreadById = query({
+  args:{threadId:v.string()},
+  handler:async(ctx, args_0)=> {
+    const thread = await ctx.runQuery(components.agent.threads.getThread,{threadId:args_0.threadId});
+    return thread;
+  },
+})
 
 // view thread Messages
 export const viewThreadMessagesById = query({
@@ -75,6 +83,5 @@ export const viewRunningThread = query({
   handler:async(ctx, args_0)=> {
     const userId = await getAuthUserId(ctx);
     if(!userId) throw new ConvexError("Not authenticated");
-    
   },
 })
