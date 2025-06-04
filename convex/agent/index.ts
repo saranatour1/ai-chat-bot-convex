@@ -2,7 +2,7 @@
 // https://github.com/get-convex/agent/blob/main/src/component
 import { google } from '@ai-sdk/google';
 // biome-ignore lint/style/useImportType: <explanation>
-import { Agent, ThreadDoc } from '@convex-dev/agent';
+import { Agent, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
@@ -43,26 +43,44 @@ export const listThreadsByUserId = query({
 });
 
 export const getThreadById = query({
-  args:{threadId:v.string()},
-  handler:async(ctx, args_0)=> {
-    const thread = await ctx.runQuery(components.agent.threads.getThread,{threadId:args_0.threadId});
+  args: { threadId: v.string() },
+  handler: async (
+    ctx,
+    args_0,
+  ): Promise<{
+    _creationTime: number;
+    _id: string;
+    status: 'active' | 'archived';
+    summary?: string;
+    title?: string;
+    userId?: string;
+  } | null> => {
+    const thread = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId: args_0.threadId,
+    });
     return thread;
   },
-})
+});
 
 // view thread Messages
 export const viewThreadMessagesById = query({
-  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
+  args: {
+    threadId: v.string(),
+    paginationOpts: paginationOptsValidator,
+    streamArgs: vStreamArgs,
+  },
   handler: async (ctx, args_0) => {
-    const threadMessages = await ctx.runQuery(
-      components.agent.messages.listMessagesByThreadId,
-      {
-        threadId: args_0.threadId,
-        order: 'desc',
-        paginationOpts: args_0.paginationOpts,
-      },
-    );
-    return threadMessages;
+    const { threadId, paginationOpts, streamArgs } = args_0;
+    const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs });
+    const paginated = await mainAgent.listMessages(ctx, {
+      threadId,
+      paginationOpts,
+    });
+
+    return {
+      ...paginated,
+      streams,
+    };
   },
 });
 
@@ -76,12 +94,11 @@ export const deleteChatHistory = action({
   },
 });
 
-
 // get current active user thread
 export const viewRunningThread = query({
-  args:{},
-  handler:async(ctx, args_0)=> {
+  args: {},
+  handler: async (ctx, args_0) => {
     const userId = await getAuthUserId(ctx);
-    if(!userId) throw new ConvexError("Not authenticated");
+    if (!userId) throw new ConvexError('Not authenticated');
   },
-})
+});

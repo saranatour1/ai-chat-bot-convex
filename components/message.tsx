@@ -1,6 +1,4 @@
 'use client';
-
-import type { UIMessage } from 'ai';
 import cx from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useState } from 'react';
@@ -18,28 +16,21 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
 import { DocumentPreview } from './document-preview';
 import { MessageReasoning } from './message-reasoning';
-import type { UseChatHelpers } from '@ai-sdk/react';
+import { type UIMessage, useSmoothText } from '@convex-dev/agent/react';
 
 const PurePreviewMessage = ({
   chatId,
   message,
-  vote,
   isLoading,
-  setMessages,
-  reload,
-  isReadonly,
   requiresScrollPadding,
 }: {
   chatId: string;
   message: UIMessage;
-  vote: Vote | undefined;
   isLoading: boolean;
-  setMessages: UseChatHelpers['setMessages'];
-  reload: UseChatHelpers['reload'];
-  isReadonly: boolean;
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+    const [visibleText] = useSmoothText(message.content);
 
   return (
     <AnimatePresence>
@@ -105,7 +96,7 @@ const PurePreviewMessage = ({
                 if (mode === 'view') {
                   return (
                     <div key={key} className="flex flex-row gap-2 items-start">
-                      {message.role === 'user' && !isReadonly && (
+                      {message.role === "user" && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
@@ -130,7 +121,7 @@ const PurePreviewMessage = ({
                             message.role === 'user',
                         })}
                       >
-                        <Markdown>{sanitizeText(part.text)}</Markdown>
+                        <Markdown>{sanitizeText(visibleText)}</Markdown>
                       </div>
                     </div>
                   );
@@ -145,8 +136,6 @@ const PurePreviewMessage = ({
                         key={message.id}
                         message={message}
                         setMode={setMode}
-                        setMessages={setMessages}
-                        reload={reload}
                       />
                     </div>
                   );
@@ -170,18 +159,18 @@ const PurePreviewMessage = ({
                       {toolName === 'getWeather' ? (
                         <Weather />
                       ) : toolName === 'createDocument' ? (
-                        <DocumentPreview isReadonly={isReadonly} args={args} />
+                        <DocumentPreview isReadonly={false} args={args} />
                       ) : toolName === 'updateDocument' ? (
                         <DocumentToolCall
                           type="update"
                           args={args}
-                          isReadonly={isReadonly}
+                          isReadonly={false}
                         />
                       ) : toolName === 'requestSuggestions' ? (
                         <DocumentToolCall
                           type="request-suggestions"
                           args={args}
-                          isReadonly={isReadonly}
+                          isReadonly={false}
                         />
                       ) : null}
                     </div>
@@ -197,20 +186,20 @@ const PurePreviewMessage = ({
                         <Weather weatherAtLocation={result} />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview
-                          isReadonly={isReadonly}
+                          isReadonly={false}
                           result={result}
                         />
                       ) : toolName === 'updateDocument' ? (
                         <DocumentToolResult
                           type="update"
                           result={result}
-                          isReadonly={isReadonly}
+                          isReadonly={false}
                         />
                       ) : toolName === 'requestSuggestions' ? (
                         <DocumentToolResult
                           type="request-suggestions"
                           result={result}
-                          isReadonly={isReadonly}
+                          isReadonly={false}
                         />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>
@@ -221,12 +210,11 @@ const PurePreviewMessage = ({
               }
             })}
 
-            {!isReadonly && (
+            {!true && (
               <MessageActions
                 key={`action-${message.id}`}
                 chatId={chatId}
                 message={message}
-                vote={vote}
                 isLoading={isLoading}
               />
             )}
@@ -245,8 +233,6 @@ export const PreviewMessage = memo(
     if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding)
       return false;
     if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-    if (!equal(prevProps.vote, nextProps.vote)) return false;
-
     return true;
   },
 );

@@ -168,6 +168,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -193,6 +194,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -336,6 +338,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -361,6 +364,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -504,6 +508,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -529,6 +534,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -692,6 +698,7 @@ export declare const components: {
                             }
                           | {
                               data: string | ArrayBuffer;
+                              filename?: string;
                               mimeType: string;
                               providerOptions?: Record<
                                 string,
@@ -717,6 +724,7 @@ export declare const components: {
                             }
                           | {
                               data: string | ArrayBuffer;
+                              filename?: string;
                               mimeType: string;
                               providerOptions?: Record<
                                 string,
@@ -867,6 +875,7 @@ export declare const components: {
                                 }
                               | {
                                   data: string | ArrayBuffer;
+                                  filename?: string;
                                   mimeType: string;
                                   providerOptions?: Record<
                                     string,
@@ -892,6 +901,7 @@ export declare const components: {
                                 }
                               | {
                                   data: string | ArrayBuffer;
+                                  filename?: string;
                                   mimeType: string;
                                   providerOptions?: Record<
                                     string,
@@ -1043,6 +1053,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -1062,6 +1073,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -1151,6 +1163,153 @@ export declare const components: {
         { messageId: string },
         null
       >;
+      getMessagesByIds: FunctionReference<
+        "query",
+        "internal",
+        { messageIds: Array<string> },
+        Array<null | {
+          _creationTime: number;
+          _id: string;
+          agentName?: string;
+          embeddingId?: string;
+          error?: string;
+          files?: Array<{
+            data?: ArrayBuffer | string;
+            fileId?: string;
+            mimeType: string;
+            url?: string;
+          }>;
+          finishReason?:
+            | "stop"
+            | "length"
+            | "content-filter"
+            | "tool-calls"
+            | "error"
+            | "other"
+            | "unknown";
+          id?: string;
+          message?:
+            | {
+                content:
+                  | string
+                  | Array<
+                      | {
+                          providerOptions?: Record<string, Record<string, any>>;
+                          text: string;
+                          type: "text";
+                        }
+                      | {
+                          image: string | ArrayBuffer;
+                          mimeType?: string;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          type: "image";
+                        }
+                      | {
+                          data: string | ArrayBuffer;
+                          filename?: string;
+                          mimeType: string;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          type: "file";
+                        }
+                    >;
+                providerOptions?: Record<string, Record<string, any>>;
+                role: "user";
+              }
+            | {
+                content:
+                  | string
+                  | Array<
+                      | {
+                          providerOptions?: Record<string, Record<string, any>>;
+                          text: string;
+                          type: "text";
+                        }
+                      | {
+                          data: string | ArrayBuffer;
+                          filename?: string;
+                          mimeType: string;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          type: "file";
+                        }
+                      | {
+                          providerOptions?: Record<string, Record<string, any>>;
+                          signature?: string;
+                          text: string;
+                          type: "reasoning";
+                        }
+                      | {
+                          data: string;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          type: "redacted-reasoning";
+                        }
+                      | {
+                          args: any;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          toolCallId: string;
+                          toolName: string;
+                          type: "tool-call";
+                        }
+                    >;
+                providerOptions?: Record<string, Record<string, any>>;
+                role: "assistant";
+              }
+            | {
+                content: Array<{
+                  args?: any;
+                  experimental_content?: Array<
+                    | { text: string; type: "text" }
+                    | { data: string; mimeType?: string; type: "image" }
+                  >;
+                  isError?: boolean;
+                  providerOptions?: Record<string, Record<string, any>>;
+                  result: any;
+                  toolCallId: string;
+                  toolName: string;
+                  type: "tool-result";
+                }>;
+                providerOptions?: Record<string, Record<string, any>>;
+                role: "tool";
+              }
+            | {
+                content: string;
+                providerOptions?: Record<string, Record<string, any>>;
+                role: "system";
+              };
+          model?: string;
+          order: number;
+          provider?: string;
+          providerMetadata?: Record<string, Record<string, any>>;
+          providerOptions?: Record<string, Record<string, any>>;
+          reasoning?: string;
+          reasoningDetails?: Array<
+            | { signature?: string; text: string; type: "text" }
+            | { data: string; type: "redacted" }
+          >;
+          sources?: Array<{
+            id: string;
+            providerOptions?: Record<string, Record<string, any>>;
+            sourceType: "url";
+            title?: string;
+            url: string;
+          }>;
+          status: "pending" | "success" | "failed";
+          stepOrder: number;
+          text?: string;
+          threadId: string;
+          tool: boolean;
+          usage?: {
+            completionTokens: number;
+            promptTokens: number;
+            totalTokens: number;
+          };
+          userId?: string;
+          warnings?: Array<
+            | { details?: string; setting: string; type: "unsupported-setting" }
+            | { details?: string; tool: any; type: "unsupported-tool" }
+            | { message: string; type: "other" }
+          >;
+        }>
+      >;
       getThreadMessages: FunctionReference<
         "query",
         "internal",
@@ -1203,6 +1362,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -1228,6 +1388,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -1397,6 +1558,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -1422,6 +1584,7 @@ export declare const components: {
                           }
                         | {
                             data: string | ArrayBuffer;
+                            filename?: string;
                             mimeType: string;
                             providerOptions?: Record<
                               string,
@@ -1537,9 +1700,9 @@ export declare const components: {
           beforeMessageId?: string;
           limit: number;
           messageRange?: { after: number; before: number };
+          searchAllMessagesForUserId?: string;
           text?: string;
           threadId?: string;
-          userId?: string;
           vector?: Array<number>;
           vectorModel?: string;
           vectorScoreThreshold?: number;
@@ -1583,6 +1746,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -1602,6 +1766,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -1691,9 +1856,9 @@ export declare const components: {
         {
           beforeMessageId?: string;
           limit: number;
+          searchAllMessagesForUserId?: string;
           text: string;
           threadId?: string;
-          userId?: string;
         },
         Array<{
           _creationTime: number;
@@ -1734,6 +1899,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -1753,6 +1919,7 @@ export declare const components: {
                         }
                       | {
                           data: string | ArrayBuffer;
+                          filename?: string;
                           mimeType: string;
                           providerOptions?: Record<string, Record<string, any>>;
                           type: "file";
@@ -2230,6 +2397,7 @@ export declare const components: {
               | 3072
               | 4096;
             vectors: Array<{
+              messageId?: string;
               model: string;
               table: string;
               threadId?: string;
@@ -2237,7 +2405,18 @@ export declare const components: {
               vector: Array<number>;
             }>;
           },
-          null
+          Array<
+            | string
+            | string
+            | string
+            | string
+            | string
+            | string
+            | string
+            | string
+            | string
+            | string
+          >
         >;
         paginate: FunctionReference<
           "query",

@@ -1,25 +1,15 @@
 'use client';
-
-import { ChatRequestOptions, Message } from 'ai';
+import type { UIMessage } from '@convex-dev/agent/react';
 import { Button } from './ui/button';
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { Textarea } from './ui/textarea';
 import { deleteTrailingMessages } from '@/app/(chat)/actions';
-import { UseChatHelpers } from '@ai-sdk/react';
+import { useEffect, useRef, useState } from 'react';
 
-export type MessageEditorProps = {
-  message: Message;
-  setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
-  setMessages: UseChatHelpers['setMessages'];
-  reload: UseChatHelpers['reload'];
-};
 
 export function MessageEditor({
   message,
   setMode,
-  setMessages,
-  reload,
-}: MessageEditorProps) {
+}:{message:UIMessage, setMode:(mode:"edit"|"view")=>void}) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [draftContent, setDraftContent] = useState<string>(message.content);
@@ -75,25 +65,23 @@ export function MessageEditor({
               id: message.id,
             });
 
-            // @ts-expect-error todo: support UIMessage in setMessages
-            setMessages((messages) => {
-              const index = messages.findIndex((m) => m.id === message.id);
+            // setMessages((messages) => {
+            //   const index = messages.findIndex((m:UIMessage) => m.id === message.id);
 
-              if (index !== -1) {
-                const updatedMessage = {
-                  ...message,
-                  content: draftContent,
-                  parts: [{ type: 'text', text: draftContent }],
-                };
+            //   if (index !== -1) {
+            //     const updatedMessage = {
+            //       ...message,
+            //       content: draftContent,
+            //       parts: [{ type: 'text', text: draftContent }],
+            //     };
 
-                return [...messages.slice(0, index), updatedMessage];
-              }
+            //     return [...messages.slice(0, index), updatedMessage];
+            //   }
 
-              return messages;
-            });
+            //   return messages;
+            // });
 
             setMode('view');
-            reload();
           }}
         >
           {isSubmitting ? 'Sending...' : 'Send'}
