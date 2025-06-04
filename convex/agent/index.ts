@@ -6,8 +6,8 @@ import { Agent, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
-import { components } from '../_generated/api';
-import { action, query } from '../_generated/server';
+import { api, components, internal } from '../_generated/api';
+import { action, internalAction, mutation, query } from '../_generated/server';
 
 export const mainAgent = new Agent(components.agent, {
   name: 'Idea Manager Agent',
@@ -94,11 +94,53 @@ export const deleteChatHistory = action({
   },
 });
 
-// get current active user thread
-export const viewRunningThread = query({
-  args: {},
-  handler: async (ctx, args_0) => {
+export const createThreadAndPrompt = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError('Not authenticated');
+    if(!userId) throw new ConvexError("not authenticated")
+    // Start a new thread for the user.
+    const { threadId, thread } = await mainAgent.createThread(ctx, { userId});
+    // Creates a user message with the prompt, and an assistant reply message.
+    const result = await thread.generateText({ prompt });
+    return { threadId, text: result.text ,};
   },
 });
+
+export const streamMessageAsynchronously = mutation({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+
+    const { messageId } = await mainAgent.saveMessage(ctx, {
+      threadId,
+      prompt,
+      // we're in a mutation, so skip embeddings for now. They'll be generated
+      // lazily when streaming text.
+      skipEmbeddings: true,
+    });
+    await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
+      threadId,
+      promptMessageId: messageId,
+    });
+  },
+});
+
+export const streamMessage = internalAction({
+  args: { promptMessageId: v.string(), threadId: v.string() },
+  handler: async (ctx, { promptMessageId, threadId }) => {
+    const { thread } = await mainAgent.continueThread(ctx, { threadId });
+    const result = await thread.streamText(
+      { promptMessageId },
+      { saveStreamDeltas: true },
+    );
+    await result.consumeStream();
+  },
+});
+
+// last message sent in stream 
+export const findLastMessage = query({
+  args:{threadId:v.string()},
+  handler:async(ctx, args_0)=> {
+    // const thread = await ctx.runQuery(components.agent.)
+  },
+})

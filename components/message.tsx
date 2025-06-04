@@ -1,22 +1,23 @@
 'use client';
+import { cn, sanitizeText } from '@/lib/utils';
 import cx from 'classnames';
+import equal from 'fast-deep-equal';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useState } from 'react';
-import type { Vote } from '@/lib/db/schema';
 import { DocumentToolCall, DocumentToolResult } from './document';
+import { DocumentPreview } from './document-preview';
 import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
+import { MessageEditor } from './message-editor';
+import { MessageReasoning } from './message-reasoning';
 import { PreviewAttachment } from './preview-attachment';
-import { Weather } from './weather';
-import equal from 'fast-deep-equal';
-import { cn, sanitizeText } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { MessageEditor } from './message-editor';
-import { DocumentPreview } from './document-preview';
-import { MessageReasoning } from './message-reasoning';
-import { type UIMessage, useSmoothText } from '@convex-dev/agent/react';
+import { Weather } from './weather';
+
+import { useSmoothText, type UIMessage } from '@convex-dev/agent/react';
+
 
 const PurePreviewMessage = ({
   chatId,
@@ -30,7 +31,7 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-    const [visibleText] = useSmoothText(message.content);
+  const [visibleText] = useSmoothText(message.content);
 
   return (
     <AnimatePresence>

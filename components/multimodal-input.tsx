@@ -1,64 +1,55 @@
 'use client';
 
-import type { Attachment, UIMessage } from 'ai';
 import cx from 'classnames';
 import type React from 'react';
 import {
-  useRef,
-  useEffect,
-  useState,
-  useCallback,
-  type Dispatch,
-  type SetStateAction,
-  type ChangeEvent,
   memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent
 } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
 
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
-import { PreviewAttachment } from './preview-attachment';
-import { Button } from './ui/button';
-import { Textarea } from './ui/textarea';
-import { SuggestedActions } from './suggested-actions';
+import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
+import type { UIMessage } from '@convex-dev/agent/react';
+import type { Attachment } from 'ai';
 import equal from 'fast-deep-equal';
-import type { UseChatHelpers } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
-import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
-import type { VisibilityType } from './visibility-selector';
+import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
+import { PreviewAttachment } from './preview-attachment';
+import { SuggestedActions } from './suggested-actions';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
 
 function PureMultimodalInput({
   chatId,
   input,
   setInput,
-  status,
-  stop,
+  handleSubmit,
   attachments,
   setAttachments,
   messages,
-  setMessages,
-  append,
-  handleSubmit,
-  className,
-  selectedVisibilityType,
+  selectedVisibilityType="private",
+    className,
 }: {
   chatId: string;
   input: string;
-  setInput: UseChatHelpers['setInput'];
-  status: UseChatHelpers['status'];
-  stop: () => void;
-  attachments: Array<Attachment>;
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
-  messages: Array<UIMessage>;
-  setMessages: UseChatHelpers['setMessages'];
-  append: UseChatHelpers['append'];
-  handleSubmit: UseChatHelpers['handleSubmit'];
-  className?: string;
-  selectedVisibilityType: VisibilityType;
+  setInput: (v: string) => void;
+  handleSubmit: ({ threadId, prompt }: { threadId: string; prompt: string }) => void;
+  attachments: Attachment[];
+  setAttachments: (v: Attachment[]) => void;
+  messages: UIMessage[];
+  selectedVisibilityType?:string;
+    className?:string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -108,14 +99,23 @@ function PureMultimodalInput({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const lastMessageRef = useRef<UIMessage>()
+  
+  const activeMessage = useMemo(()=>{
+    const active = messages.find(m=> m.status==="streaming")
+    if(active){
+      lastMessageRef.current = active
+    }
+    return active
+  },[messages])
+
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, '', `/chat/${chatId}`);
 
-    handleSubmit(undefined, {
-      experimental_attachments: attachments,
-    });
+    handleSubmit({threadId:chatId, prompt: input});
 
+    lastMessageRef.current = undefined
     setAttachments([]);
     setLocalStorageInput('');
     resetHeight();
@@ -172,10 +172,10 @@ function PureMultimodalInput({
           (attachment) => attachment !== undefined,
         );
 
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...successfullyUploadedAttachments,
-        ]);
+        // setAttachments((currentAttachments) => [
+        //   ...currentAttachments,
+        //   ...successfullyUploadedAttachments,
+        // ]);
       } catch (error) {
         console.error('Error uploading files!', error);
       } finally {
@@ -188,10 +188,10 @@ function PureMultimodalInput({
   const { isAtBottom, scrollToBottom } = useScrollToBottom();
 
   useEffect(() => {
-    if (status === 'submitted') {
+    if (lastMessageRef.current?.status === 'streaming') {
       scrollToBottom();
     }
-  }, [status, scrollToBottom]);
+  }, [messages, scrollToBottom]);
 
   return (
     <div className="relative w-full flex flex-col gap-4">
@@ -224,9 +224,9 @@ function PureMultimodalInput({
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
           <SuggestedActions
-            append={append}
+            append={handleSubmit}
             chatId={chatId}
-            selectedVisibilityType={selectedVisibilityType}
+            // selectedVisibilityType={selectedVisibilityType}
           />
         )}
 
@@ -282,7 +282,7 @@ function PureMultimodalInput({
           ) {
             event.preventDefault();
 
-            if (status !== 'ready') {
+            if (lastMessageRef.current?.status !== 'success') {
               toast.error('Please wait for the model to finish its response!');
             } else {
               submitForm();
@@ -292,12 +292,12 @@ function PureMultimodalInput({
       />
 
       <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
-        <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+        <AttachmentsButton fileInputRef={fileInputRef} status={lastMessageRef.current?.status} />
       </div>
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-        {status === 'submitted' ? (
-          <StopButton stop={stop} setMessages={setMessages} />
+        {messages.find(m=>m.id === activeMessage?.id)?.status? (
+          <StopButton stop={stop} />
         ) : (
           <SendButton
             input={input}
@@ -314,7 +314,6 @@ export const MultimodalInput = memo(
   PureMultimodalInput,
   (prevProps, nextProps) => {
     if (prevProps.input !== nextProps.input) return false;
-    if (prevProps.status !== nextProps.status) return false;
     if (!equal(prevProps.attachments, nextProps.attachments)) return false;
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
       return false;
@@ -328,7 +327,7 @@ function PureAttachmentsButton({
   status,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers['status'];
+  status:  "streaming" | "pending" | "success" | "failed" | undefined
 }) {
   return (
     <Button
@@ -338,7 +337,7 @@ function PureAttachmentsButton({
         event.preventDefault();
         fileInputRef.current?.click();
       }}
-      disabled={status !== 'ready'}
+      disabled={status !== 'pending'}
       variant="ghost"
     >
       <PaperclipIcon size={14} />
@@ -350,10 +349,10 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 
 function PureStopButton({
   stop,
-  setMessages,
+  // setMessages,
 }: {
   stop: () => void;
-  setMessages: UseChatHelpers['setMessages'];
+  // setMessages: UseChatHelpers['setMessages'];
 }) {
   return (
     <Button
@@ -362,7 +361,7 @@ function PureStopButton({
       onClick={(event) => {
         event.preventDefault();
         stop();
-        setMessages((messages) => messages);
+        // setMessages((messages) => messages);
       }}
     >
       <StopIcon size={14} />

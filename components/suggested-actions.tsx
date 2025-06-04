@@ -1,15 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Button } from './ui/button';
 import { memo } from 'react';
-import type { UseChatHelpers } from '@ai-sdk/react';
+import { Button } from './ui/button';
 import type { VisibilityType } from './visibility-selector';
 
 interface SuggestedActionsProps {
   chatId: string;
-  append: UseChatHelpers['append'];
-  selectedVisibilityType: VisibilityType;
+  append: ({ threadId, prompt }: { threadId: string; prompt: string }) => void;
+  selectedVisibilityType?: VisibilityType;
 }
 
 function PureSuggestedActions({
@@ -59,10 +58,7 @@ function PureSuggestedActions({
             onClick={async () => {
               window.history.replaceState({}, '', `/chat/${chatId}`);
 
-              append({
-                role: 'user',
-                content: suggestedAction.action,
-              });
+              append({threadId:chatId, prompt:suggestedAction.action});
             }}
             className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
           >

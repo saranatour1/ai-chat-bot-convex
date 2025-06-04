@@ -1,3 +1,4 @@
+'use client'
 import { useMessages } from '@/hooks/use-messages';
 import type { UIMessage } from '@convex-dev/agent/react';
 import equal from 'fast-deep-equal';
