@@ -25,6 +25,9 @@ import { PreviewAttachment } from './preview-attachment';
 import { SuggestedActions } from './suggested-actions';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { useRouter } from 'next/navigation';
 
 function PureMultimodalInput({
   chatId,
@@ -47,8 +50,10 @@ function PureMultimodalInput({
   selectedVisibilityType?:string;
     className?:string;
 }) {
+  const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const router = useRouter()
 
 
   useEffect(() => {
@@ -110,27 +115,40 @@ function PureMultimodalInput({
   },[messages])
 
 
-  const submitForm = useCallback(() => {
-    window.history.replaceState({}, '', `/chat/${chatId}`);
+const submitForm = useCallback(async () => {
+  try {
+    const threadId = chatId ? chatId : await createEmptyThread();
 
-    handleSubmit({threadId:chatId, prompt: input});
+    if (!threadId) {
+      console.error('Thread ID is undefined.');
+      return;
+    }
 
-    lastMessageRef.current = undefined
+    router.push(`/chat/${threadId}`);
+    handleSubmit({ threadId, prompt: input });
+
+    // Reset UI state
+    lastMessageRef.current = undefined;
     setAttachments([]);
     setLocalStorageInput('');
     resetHeight();
+    setInput('');
 
     if (width && width > 768) {
       textareaRef.current?.focus();
     }
-  }, [
+  } catch (error) {
+    console.error('Error during form submission:', error);
+  }
+}, [
     attachments,
     handleSubmit,
     setAttachments,
     setLocalStorageInput,
     width,
     chatId,
-  ]);
+]);
+
 
   const uploadFile = async (file: File) => {
     const formData = new FormData();
@@ -282,7 +300,7 @@ function PureMultimodalInput({
           ) {
             event.preventDefault();
 
-            if (lastMessageRef.current?.status !== 'success') {
+            if (lastMessageRef.current && lastMessageRef.current?.status !== 'pending') {
               toast.error('Please wait for the model to finish its response!');
             } else {
               submitForm();

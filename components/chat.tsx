@@ -2,13 +2,10 @@
 
 import { ChatHeader } from '@/components/chat-header';
 import { api } from '@/convex/_generated/api';
-import { useArtifactSelector } from '@/hooks/use-artifact';
-import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import type { Attachment } from 'ai';
 import { useMutation, useQuery } from 'convex/react';
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Artifact } from './artifact';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { Messages } from './messages';
 import { MultimodalInput } from './multimodal-input';
 
@@ -21,43 +18,38 @@ import {
 export function Chat({ chatId }: {
   chatId: string;
 }) {
-
-  const thread = useQuery(api.agent.index.getThreadById, chatId ? { threadId: chatId } : "skip")
-
-  // if (!thread) {
-  //   return notFound()
-  // }
-
-
-  const { visibilityType } = useChatVisibility({
-    chatId: chatId,
-    initialVisibilityType: "private",
-  });
-
-  const messages = useThreadMessages(api.agent.index.viewThreadMessagesById, {threadId:chatId}, {initialNumItems:50, stream:true})
-
+  const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
   const searchParams = useSearchParams();
   const query = searchParams.get('query');
+  const router = useRouter()
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
   const [input, setInput] = useState<string>("")
+  const threadIdRef = useRef<string>();
 
-  useEffect(() => {
-    if (query && !hasAppendedQuery) {
-      // append({
-      //   role: 'user',
-      //   content: query,
-      // });
+  // useEffect(() => {
+  //   const threadCatcher = async () => {
+  //     try {
+  //       if (input.length > 0 && !hasAppendedQuery && !chatId) {
+  //         threadIdRef.current = await createEmptyThread()
+  //         setHasAppendedQuery(true);
+  //         router.push(`/chat/${threadIdRef.current}`);
+  //       }
+  //     } catch (e) {
+  //       console.log(e)
+  //     }
+  //   }
+  //   threadCatcher()
+  // }, [input, hasAppendedQuery, chatId]);
 
-      setHasAppendedQuery(true);
-      window.history.replaceState({}, '', `/chat/${chatId}`);
-    }
-  }, [query, hasAppendedQuery, chatId]);
+  const thread = useQuery(api.agent.index.getThreadById, chatId && chatId !== undefined ? { threadId: chatId } : "skip")
 
+  const messages = useThreadMessages(api.agent.index.viewThreadMessagesById,
+    chatId && chatId !== undefined ? { threadId: chatId } : "skip",
+    { initialNumItems: 50, stream: true })
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
-  const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
-  
+
   const sendMessage = useMutation(
     api.agent.index.streamMessageAsynchronously,
   ).withOptimisticUpdate(
@@ -81,19 +73,19 @@ export function Chat({ chatId }: {
         />
 
         <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-          
-            <MultimodalInput
-              chatId={chatId}
-              input={input}
-              setInput={setInput}
-              handleSubmit={sendMessage}
-              // status={messages.isLoading ? "submitted":"streaming"}
-              attachments={attachments}
-              setAttachments={setAttachments}
-              messages={toUIMessages(messages.results)}
-              selectedVisibilityType={"private"}
-            />
-          
+
+          <MultimodalInput
+            chatId={chatId}
+            input={input}
+            setInput={setInput}
+            handleSubmit={sendMessage}
+            // status={messages.isLoading ? "submitted":"streaming"}
+            attachments={attachments}
+            setAttachments={setAttachments}
+            messages={toUIMessages(messages.results)}
+            selectedVisibilityType={"private"}
+          />
+
         </form>
       </div>
 

@@ -1,9 +1,11 @@
-"use client"
 import { Chat } from '@/components/chat';
-import { useParams } from 'next/navigation';
 
-export default function Page() {
-  const { id } = useParams<{id:string}>();
+interface PageProps{
+  params:Promise<{id:string}>
+}
+
+export default async function Page({params}:PageProps) {
+  const {id} = (await params)
   return (
     <>
       <Chat

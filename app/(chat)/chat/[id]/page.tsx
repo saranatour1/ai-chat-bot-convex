@@ -1,13 +1,11 @@
-'use client'
-import { cookies } from 'next/headers';
-
 import { Chat } from '@/components/chat';
-import { DataStreamHandler } from '@/components/data-stream-handler';
-import { useParams } from 'next/navigation';
 
+interface PageProps{
+  params:Promise<{id:string}>
+}
 
-export default function Page() {
-  const { id } = useParams<{id:string}>();
+export default async function Page({params}:PageProps) {
+  const {id} = (await params)
   return (
     <>
       <Chat

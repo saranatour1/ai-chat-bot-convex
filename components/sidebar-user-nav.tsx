@@ -53,8 +53,8 @@ export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
                 data-testid="user-nav-button"
                 className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10"
               >
-                <Image
-                  src={user?.image as string}
+                <img
+                  src={user?.image || "https://avatars.githubusercontent.com/u/77834808?s=400&u=b1bbf50f768392126f8bf42c10df11e75e17e471&v=4"}
                   alt={user?.email ?? 'User Avatar'}
                   width={24}
                   height={24}

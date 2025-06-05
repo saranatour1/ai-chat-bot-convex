@@ -7,7 +7,7 @@ import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
 import { api, components, internal } from '../_generated/api';
-import { action, internalAction, mutation, query } from '../_generated/server';
+import { action, internalAction, internalMutation, mutation, MutationCtx, query, QueryCtx } from '../_generated/server';
 
 export const mainAgent = new Agent(components.agent, {
   name: 'Idea Manager Agent',
@@ -84,6 +84,18 @@ export const viewThreadMessagesById = query({
   },
 });
 
+export const createEmptyThread = mutation({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new ConvexError("Not authenticated");
+    }
+    const { threadId } = await mainAgent.createThread(ctx, { userId });
+    return threadId;
+  },
+});
+
+
 // delete chat history
 export const deleteChatHistory = action({
   args: { threadId: v.string() },
@@ -98,12 +110,12 @@ export const createThreadAndPrompt = action({
   args: { prompt: v.string() },
   handler: async (ctx, { prompt }) => {
     const userId = await getAuthUserId(ctx);
-    if(!userId) throw new ConvexError("not authenticated")
+    if (!userId) throw new ConvexError("not authenticated")
     // Start a new thread for the user.
-    const { threadId, thread } = await mainAgent.createThread(ctx, { userId});
+    const { threadId, thread } = await mainAgent.createThread(ctx, { userId });
     // Creates a user message with the prompt, and an assistant reply message.
     const result = await thread.generateText({ prompt });
-    return { threadId, text: result.text ,};
+    return { threadId, text: result.text, };
   },
 });
 
@@ -139,8 +151,8 @@ export const streamMessage = internalAction({
 
 // last message sent in stream 
 export const findLastMessage = query({
-  args:{threadId:v.string()},
-  handler:async(ctx, args_0)=> {
+  args: { threadId: v.string() },
+  handler: async (ctx, args_0) => {
     // const thread = await ctx.runQuery(components.agent.)
   },
 })
