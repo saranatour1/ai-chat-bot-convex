@@ -102,7 +102,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
     results: paginatedChatHistories,
     status,
     loadMore
-  } = usePaginatedQuery(api.agent.index.listThreadsByUserId, id ? {} : "skip", { initialNumItems: 10 });
+  } = usePaginatedQuery(api.agent.index.listThreadsByUserId, user ? {} : "skip", { initialNumItems: 10 });
 
 
   const deleteChat = useAction(api.agent.index.deleteChatHistory)

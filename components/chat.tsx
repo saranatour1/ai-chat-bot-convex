@@ -18,30 +18,7 @@ import {
 export function Chat({ chatId }: {
   chatId: string;
 }) {
-  const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
-  const searchParams = useSearchParams();
-  const query = searchParams.get('query');
-  const router = useRouter()
-
-  const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
   const [input, setInput] = useState<string>("")
-  const threadIdRef = useRef<string>();
-
-  // useEffect(() => {
-  //   const threadCatcher = async () => {
-  //     try {
-  //       if (input.length > 0 && !hasAppendedQuery && !chatId) {
-  //         threadIdRef.current = await createEmptyThread()
-  //         setHasAppendedQuery(true);
-  //         router.push(`/chat/${threadIdRef.current}`);
-  //       }
-  //     } catch (e) {
-  //       console.log(e)
-  //     }
-  //   }
-  //   threadCatcher()
-  // }, [input, hasAppendedQuery, chatId]);
-
   const thread = useQuery(api.agent.index.getThreadById, chatId && chatId !== undefined ? { threadId: chatId } : "skip")
 
   const messages = useThreadMessages(api.agent.index.viewThreadMessagesById,
