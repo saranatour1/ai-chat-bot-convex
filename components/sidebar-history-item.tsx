@@ -45,10 +45,16 @@ const PureChatItem = ({
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive}>
-        <Link href={`/chat/${chat._id}`} onClick={() => setOpenMobile(false)}>
-          <span>{chat.title}</span>
+        <Link
+          className="w-full"
+          href={`/chat/${chat._id}`}
+          onClick={() => setOpenMobile(false)}
+        >
+          <span className="truncate max-w-[20ch]">{chat?.title || "New chat"}</span>
+          <span className="sr-only">{chat.summary}</span>
         </Link>
       </SidebarMenuButton>
+
 
       <DropdownMenu modal={true}>
         <DropdownMenuTrigger asChild>

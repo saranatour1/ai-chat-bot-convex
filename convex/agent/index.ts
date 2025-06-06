@@ -6,8 +6,9 @@ import { Agent, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
-import { api, components, internal } from '../_generated/api';
-import { action, internalAction, internalMutation, mutation, MutationCtx, query, QueryCtx } from '../_generated/server';
+import { components, internal } from '../_generated/api';
+import { action, internalAction, mutation, query } from '../_generated/server';
+import { z } from 'zod';
 
 export const mainAgent = new Agent(components.agent, {
   name: 'Idea Manager Agent',
@@ -23,7 +24,7 @@ export const mainAgent = new Agent(components.agent, {
     saveAnyInputMessages: true,
     saveOutputMessages: true,
   },
-  maxSteps: 10,
+  maxSteps: 10,  
 });
 
 // list threads by userId
@@ -118,6 +119,27 @@ export const createThreadAndPrompt = action({
     return { threadId, text: result.text, };
   },
 });
+
+export const createTitleAndSummarizeChat = internalAction({
+  args: { threadId: v.string(), lastMessageId: v.optional(v.string()) },
+  handler: async (ctx, args_0) => {
+    const { thread } = await mainAgent.continueThread(ctx, { threadId: args_0.threadId})
+    const threadContext = await mainAgent.fetchContextMessages(ctx, { threadId: thread.threadId, contextOptions: {}, userId: undefined, messages: [] })
+    const o = await thread.generateObject({
+      prompt: `summarize the following thread context, and bring back the title and summary object, ${JSON.stringify(threadContext)}`,
+      schema:z.object({
+        title:z.string(),
+        summary:z.string()
+      })
+    }, { storageOptions:{saveOutputMessages:false, saveAllInputMessages:false,saveAnyInputMessages:false}})
+    
+    console.log(o)
+
+    const t = o.toJsonResponse()
+    const x: Partial<ThreadDoc> = await t.json()
+    await thread.updateMetadata(x)
+  },
+})
 
 export const streamMessageAsynchronously = mutation({
   args: { prompt: v.string(), threadId: v.string() },
