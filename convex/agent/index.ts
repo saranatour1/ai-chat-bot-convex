@@ -11,7 +11,6 @@ import { action, internalAction, mutation, query } from '../_generated/server';
 import { z } from 'zod';
 
 export const mainAgent = new Agent(components.agent, {
-  name: 'Idea Manager Agent',
   chat: google.chat('gemini-2.5-flash-preview-04-17'),
   textEmbedding: google.textEmbeddingModel(`text-embedding-004`),
   contextOptions: {
