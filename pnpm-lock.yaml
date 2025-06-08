@@ -39,11 +39,11 @@ importers:
         specifier: ^6.35.3
         version: 6.36.4
       '@convex-dev/agent':
-        specifier: 0.1.6-alpha.1
-        version: 0.1.6-alpha.1(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.3(react@19.1.0))(react@19.1.0)
+        specifier: 0.1.6
+        version: 0.1.6(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)
       '@convex-dev/auth':
         specifier: ^0.0.86
-        version: 0.0.86(@auth/core@0.37.0)(convex@1.24.3(react@19.1.0))(react@19.1.0)
+        version: 0.0.86(@auth/core@0.37.0)(convex@1.24.8(react@19.1.0))(react@19.1.0)
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.0
@@ -114,11 +114,11 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       convex:
-        specifier: ^1.24.3
-        version: 1.24.3(react@19.1.0)
+        specifier: ^1.24.8
+        version: 1.24.8(react@19.1.0)
       convex-helpers:
-        specifier: ^0.1.89
-        version: 0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2)
+        specifier: ^0.1.92
+        version: 0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -466,12 +466,12 @@ packages:
   '@codemirror/view@6.36.4':
     resolution: {integrity: sha512-ZQ0V5ovw/miKEXTvjgzRyjnrk9TwriUB1k4R5p7uNnHR9Hus+D1SXHGdJshijEzPFjU25xea/7nhIeSqYFKdbA==}
 
-  '@convex-dev/agent@0.1.6-alpha.1':
-    resolution: {integrity: sha512-T048BNLZyLRRtPsDpGrMqgYsmnScHkjMtFuxu8eh/ki38KM4DpTtnrMJLulCXbkk4QIiCwL+DUL01MSNng2IDg==}
+  '@convex-dev/agent@0.1.6':
+    resolution: {integrity: sha512-xo8GWHPV7lcR2duvXMfsnHdfy+suhPcIohx8yHFU+oS3mkWlEDFuwLxKSsdpX7CCimyEFEv7C/u8WShEWvqsOQ==}
     peerDependencies:
       ai: ^4.3.4
       convex: ^1.23.0
-      convex-helpers: ^0.1.78
+      convex-helpers: '>=0.1.91-alpha.0 || ^0.1.91'
       react: ^18.3.1 || ^19.0.0
     peerDependenciesMeta:
       react:
@@ -2548,8 +2548,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  convex-helpers@0.1.89:
-    resolution: {integrity: sha512-G/rfndoWBAChChDe6d1UTD27YadwTi0vzZrwy59gERCnumFVOJVS6VItMmlVr4yCOTXZwd69YEVbVoP8BvssJw==}
+  convex-helpers@0.1.92:
+    resolution: {integrity: sha512-k8Gm+JhBdS8oRHTORMEJQYHjOa0jmwV5ugCBh38Rfr+RilvYLNzc4oTD6JH7jngRf6eaChlQhvyu1cCxzr+1Ug==}
     hasBin: true
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
@@ -2570,8 +2570,8 @@ packages:
       zod:
         optional: true
 
-  convex@1.24.3:
-    resolution: {integrity: sha512-ybi+eKf8pGPJKtu7axjkLydmYfxvKfa/jHdnXN4IAjaI/TOAhPx9CrsV9TEHm+Mp4VU7pFbbbtZOrxN0KLn/kA==}
+  convex@1.24.8:
+    resolution: {integrity: sha512-WNKLXhOboRthS1cAi8EbBpiEsXJF2UD2H6rEd4f6BjISd+/5P+aDMw5xUpYMsbATdxqSmEoIl5QsciWJcXyW+A==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -4802,18 +4802,18 @@ snapshots:
       style-mod: 4.1.2
       w3c-keyname: 2.2.8
 
-  '@convex-dev/agent@0.1.6-alpha.1(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.3(react@19.1.0))(react@19.1.0)':
+  '@convex-dev/agent@0.1.6(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)':
     dependencies:
       ai: 4.3.13(react@19.1.0)(zod@3.24.2)
-      convex: 1.24.3(react@19.1.0)
-      convex-helpers: 0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2)
+      convex: 1.24.8(react@19.1.0)
+      convex-helpers: 0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2)
     optionalDependencies:
       react: 19.1.0
 
-  '@convex-dev/auth@0.0.86(@auth/core@0.37.0)(convex@1.24.3(react@19.1.0))(react@19.1.0)':
+  '@convex-dev/auth@0.0.86(@auth/core@0.37.0)(convex@1.24.8(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@auth/core': 0.37.0
-      convex: 1.24.3(react@19.1.0)
+      convex: 1.24.8(react@19.1.0)
       cookie: 1.0.2
       is-network-error: 1.1.0
       jose: 5.10.0
@@ -6461,15 +6461,15 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  convex-helpers@0.1.89(convex@1.24.3(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2):
+  convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2):
     dependencies:
-      convex: 1.24.3(react@19.1.0)
+      convex: 1.24.8(react@19.1.0)
     optionalDependencies:
       react: 19.1.0
       typescript: 5.8.2
       zod: 3.24.2
 
-  convex@1.24.3(react@19.1.0):
+  convex@1.24.8(react@19.1.0):
     dependencies:
       esbuild: 0.25.2
       jwt-decode: 4.0.0

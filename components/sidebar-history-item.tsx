@@ -50,7 +50,7 @@ const PureChatItem = ({
           href={`/chat/${chat._id}`}
           onClick={() => setOpenMobile(false)}
         >
-          <span className="truncate max-w-[20ch]">{chat?.title || "New chat"}</span>
+          <span className="truncate max-w-[20ch]">{chat.title || "New Chat"}</span>
           <span className="sr-only">{chat.summary}</span>
         </Link>
       </SidebarMenuButton>
@@ -118,7 +118,4 @@ const PureChatItem = ({
   );
 };
 
-export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
-  if (prevProps.isActive !== nextProps.isActive) return false;
-  return true;
-});
+export const ChatItem = memo(PureChatItem);

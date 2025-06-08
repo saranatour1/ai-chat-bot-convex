@@ -23,7 +23,7 @@ export const mainAgent = new Agent(components.agent, {
     saveAnyInputMessages: true,
     saveOutputMessages: true,
   },
-  maxSteps: 10,  
+  maxSteps: 10,
 });
 
 // list threads by userId
@@ -122,27 +122,31 @@ export const createThreadAndPrompt = action({
 export const createTitleAndSummarizeChat = internalAction({
   args: { threadId: v.string(), lastMessageId: v.optional(v.string()) },
   handler: async (ctx, args_0) => {
-    const { thread } = await mainAgent.continueThread(ctx, { threadId: args_0.threadId})
-    const threadContext = await mainAgent.fetchContextMessages(ctx, { threadId: thread.threadId, contextOptions: {}, userId: undefined, messages: [] })
-    const o = await thread.generateObject({
-      prompt: `summarize the following thread context, and bring back the title and summary object, ${JSON.stringify(threadContext)}`,
-      schema:z.object({
-        title:z.string(),
-        summary:z.string()
-      })
-    }, { storageOptions:{saveOutputMessages:false, saveAllInputMessages:false,saveAnyInputMessages:false}})
-    
-    console.log(o)
-
-    const t = o.toJsonResponse()
-    const x: Partial<ThreadDoc> = await t.json()
-    await thread.updateMetadata(x)
+    const { thread } = await mainAgent.continueThread(ctx, { threadId: args_0.threadId })
+    const { title: oldTitle, summary: oldSummary } = await thread.getMetadata()
+    if (!oldTitle || !oldSummary) {
+      const threadContext = await mainAgent.fetchContextMessages(ctx, { threadId: thread.threadId, contextOptions: {}, userId: undefined, messages: [] })
+      const o = await thread.generateObject({
+        prompt: `summarize the following thread context, and bring back the title and summary object, ${JSON.stringify(threadContext)}`,
+        schema: z.object({
+          title: z.string(),
+          summary: z.string()
+        })
+      }, { storageOptions: { saveOutputMessages: false, saveAllInputMessages: false, saveAnyInputMessages: false } })
+      const t = o.toJsonResponse()
+      if (t.ok) {
+        const x: Partial<ThreadDoc> = await t.json()
+        await thread.updateMetadata(x)
+      } else {
+        throw new ConvexError("Sadly, response was not ok")
+      }
+    }
   },
 })
 
 export const streamMessageAsynchronously = mutation({
-  args: { prompt: v.string(), threadId: v.string() },
-  handler: async (ctx, { prompt, threadId }) => {
+  args: { prompt: v.string(), threadId: v.string(), numberOfMessages: v.optional(v.number()) },
+  handler: async (ctx, { prompt, threadId, numberOfMessages }) => {
 
     const { messageId } = await mainAgent.saveMessage(ctx, {
       threadId,
@@ -155,6 +159,10 @@ export const streamMessageAsynchronously = mutation({
       threadId,
       promptMessageId: messageId,
     });
+
+    await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
+      threadId: threadId
+    })
   },
 });
 
@@ -169,11 +177,3 @@ export const streamMessage = internalAction({
     await result.consumeStream();
   },
 });
-
-// last message sent in stream 
-export const findLastMessage = query({
-  args: { threadId: v.string() },
-  handler: async (ctx, args_0) => {
-    // const thread = await ctx.runQuery(components.agent.)
-  },
-})

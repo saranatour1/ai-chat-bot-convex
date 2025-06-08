@@ -43,7 +43,7 @@ function PureMultimodalInput({
   chatId: string;
   input: string;
   setInput: (v: string) => void;
-  handleSubmit: ({ threadId, prompt }: { threadId: string; prompt: string }) => void;
+  handleSubmit: ({ threadId, prompt, numberOfMessages }: { threadId: string; prompt: string, numberOfMessages?:number }) => void;
   attachments: Attachment[];
   setAttachments: (v: Attachment[]) => void;
   messages: UIMessage[];
@@ -125,7 +125,7 @@ const submitForm = useCallback(async () => {
     }
 
     router.push(`/chat/${threadId}`);
-    handleSubmit({ threadId, prompt: input });
+    handleSubmit({ threadId, prompt: input, numberOfMessages:messages.length-1 });
 
     // Reset UI state
     lastMessageRef.current = undefined;
@@ -299,8 +299,8 @@ const submitForm = useCallback(async () => {
             !event.nativeEvent.isComposing
           ) {
             event.preventDefault();
-
-            if (lastMessageRef.current && lastMessageRef.current?.status !== 'pending') {
+            // Todo : this could be wrong
+            if (lastMessageRef.current && lastMessageRef.current?.status === 'pending') {
               toast.error('Please wait for the model to finish its response!');
             } else {
               submitForm();

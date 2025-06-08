@@ -5,7 +5,7 @@ import { api } from '@/convex/_generated/api';
 import type { Attachment } from 'ai';
 import { useMutation, useQuery } from 'convex/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { CanvasHTMLAttributes, ComponentProps, MutableRefObject, Ref, useEffect, useRef, useState } from 'react';
 import { Messages } from './messages';
 import { MultimodalInput } from './multimodal-input';
 
@@ -22,7 +22,7 @@ export function Chat({ chatId }: {
   const thread = useQuery(api.agent.index.getThreadById, chatId && chatId !== undefined ? { threadId: chatId } : "skip")
 
   const messages = useThreadMessages(api.agent.index.viewThreadMessagesById,
-    chatId && chatId !== undefined ? { threadId: chatId } : "skip",
+    chatId ? { threadId: chatId } : "skip",
     { initialNumItems: 50, stream: true })
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);

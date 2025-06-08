@@ -102,7 +102,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
     results: paginatedChatHistories,
     status,
     loadMore
-  } = usePaginatedQuery(api.agent.index.listThreadsByUserId, user ? {} : "skip", { initialNumItems: 10 });
+  } = usePaginatedQuery(api.agent.index.listThreadsByUserId, id || !id ? {} : "skip", { initialNumItems: 10 });
 
 
   const deleteChat = useAction(api.agent.index.deleteChatHistory)
@@ -115,7 +115,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
   const hasEmptyChatHistory = paginatedChatHistories.length === 0
 
   const handleDelete = async () => {
-    const deletePromise = deleteChat({threadId:deleteId as string})
+    const deletePromise = deleteChat({ threadId: deleteId as string })
 
     toast.promise(deletePromise, {
       loading: 'Deleting chat...',
@@ -144,7 +144,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
     );
   }
 
-  if ((status === "LoadingMore" || (status === "LoadingFirstPage" && paginatedChatHistories.length>0))) {
+  if (((status === "LoadingFirstPage"))) {
     return (
       <SidebarGroup>
         <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
@@ -194,7 +194,6 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
               (() => {
 
                 const groupedChats = groupChatsByDate(paginatedChatHistories);
-
                 return (
                   <div className="flex flex-col gap-6">
                     {groupedChats.today.length > 0 && (
@@ -303,18 +302,19 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
 
           <motion.div />
 
-          {hasReachedEnd ? (
-            <div className="px-2 text-zinc-500 w-full flex flex-row justify-center items-center text-sm gap-2 mt-8">
-              You have reached the end of your chat history.
-            </div>
-          ) : (
+          {status === "CanLoadMore" ? null : status === "LoadingMore" ? (
             <div className="p-2 text-zinc-500 dark:text-zinc-400 flex flex-row gap-2 items-center mt-8">
               <div className="animate-spin">
                 <LoaderIcon />
               </div>
-              <div>Loading Chats...</div>
+              <div>Loading chats...</div>
+            </div>
+          ) : (
+            <div className="px-2 text-zinc-500 w-full flex flex-row justify-center items-center text-sm gap-2 mt-8">
+              You have reached the end of your chat history.
             </div>
           )}
+
         </SidebarGroupContent>
       </SidebarGroup>
 
