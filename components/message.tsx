@@ -5,7 +5,6 @@ import equal from 'fast-deep-equal';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useState } from 'react';
 import { DocumentToolCall, DocumentToolResult } from './document';
-import { DocumentPreview } from './document-preview';
 import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
@@ -160,7 +159,7 @@ const PurePreviewMessage = ({
                       {toolName === 'getWeather' ? (
                         <Weather />
                       ) : toolName === 'createDocument' ? (
-                        <DocumentPreview isReadonly={false} args={args} />
+                        <></>
                       ) : toolName === 'updateDocument' ? (
                         <DocumentToolCall
                           type="update"
@@ -186,10 +185,7 @@ const PurePreviewMessage = ({
                       {toolName === 'getWeather' ? (
                         <Weather weatherAtLocation={result} />
                       ) : toolName === 'createDocument' ? (
-                        <DocumentPreview
-                          isReadonly={false}
-                          result={result}
-                        />
+                        <></>
                       ) : toolName === 'updateDocument' ? (
                         <DocumentToolResult
                           type="update"
