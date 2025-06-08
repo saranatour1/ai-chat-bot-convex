@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@convex-dev/auth/server';
-import { useQuery } from 'convex/react';
+import { Authenticated, useQuery } from 'convex/react';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
@@ -61,9 +61,14 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {user && <SidebarHistory user={user} />}
+        <Authenticated>
+
+          {user && <SidebarHistory user={user} />}
+        </Authenticated>
       </SidebarContent>
-      <SidebarFooter><SidebarUserNav user={user as Doc<"users">} /></SidebarFooter>
+      <Authenticated>
+        <SidebarFooter><SidebarUserNav user={user as Doc<"users">} /></SidebarFooter>
+      </Authenticated>
     </Sidebar>
   );
 }
