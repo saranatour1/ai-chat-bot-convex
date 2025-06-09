@@ -3,21 +3,22 @@
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef } from 'react';
 import { initialArtifactData, useArtifact } from '@/hooks/use-artifact';
+import { Suggestion } from '@/lib/db/schema';
 
-export type DataStreamDelta = {
-  type:
-    | 'text-delta'
-    | 'code-delta'
-    | 'sheet-delta'
-    | 'image-delta'
-    | 'title'
-    | 'id'
-    | 'suggestion'
-    | 'clear'
-    | 'finish'
-    | 'kind';
-  content: string | Suggestion;
-};
+// export type DataStreamDelta = {
+//   type:
+//     | 'text-delta'
+//     | 'code-delta'
+//     | 'sheet-delta'
+//     | 'image-delta'
+//     | 'title'
+//     | 'id'
+//     | 'suggestion'
+//     | 'clear'
+//     | 'finish'
+//     | 'kind';
+//   content: string | Suggestion;
+// };
 
 export function DataStreamHandler({ id }: { id: string }) {
   const { data: dataStream } = useChat({ id });

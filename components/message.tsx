@@ -122,7 +122,7 @@ const PurePreviewMessage = ({
                             message.role === 'user',
                         })}
                       >
-                        <Markdown>{sanitizeText(visibleText)}</Markdown>
+                        <Markdown>{visibleText}</Markdown>
                       </div>
                     </div>
                   );
@@ -211,14 +211,12 @@ const PurePreviewMessage = ({
               }
             })}
 
-            {!true && (
               <MessageActions
                 key={`action-${message.id}`}
                 chatId={chatId}
                 message={message}
                 isLoading={isLoading}
               />
-            )}
           </div>
         </div>
       </motion.div>

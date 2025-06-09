@@ -30,7 +30,7 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.35.3",
-    "@convex-dev/agent": "0.1.6",
+    "@convex-dev/agent": "0.1.7-alpha.0",
     "@convex-dev/auth": "^0.0.86",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.200.0",

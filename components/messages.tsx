@@ -3,12 +3,12 @@ import { useMessages } from '@/hooks/use-messages';
 import type { UIMessage } from '@convex-dev/agent/react';
 import equal from 'fast-deep-equal';
 import { motion } from 'framer-motion';
-import { memo } from 'react';
+import { Fragment, memo } from 'react';
 import { Greeting } from './greeting';
 import { PreviewMessage, ThinkingMessage } from './message';
 
-function PureMessages({messages,chatId,status }: {status: "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted",chatId:string, messages:UIMessage[]}) {
-  
+function PureMessages({ messages, chatId, status }: { status: "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted", chatId: string, messages: UIMessage[] }) {
+
   const {
     containerRef: messagesContainerRef,
     endRef: messagesEndRef,
@@ -17,7 +17,7 @@ function PureMessages({messages,chatId,status }: {status: "LoadingFirstPage" | "
     hasSentMessage,
   } = useMessages({
     chatId,
-    status:"streaming" // This shouldn't be hard coded 
+    status: "streaming" // This shouldn't be hard coded 
   });
 
   return (
@@ -28,20 +28,22 @@ function PureMessages({messages,chatId,status }: {status: "LoadingFirstPage" | "
       {messages.length === 0 && <Greeting />}
 
       {messages.map((message, index) => (
-        <PreviewMessage
-          key={message.id}
-          chatId={chatId}
-          message={message}
-          isLoading={message.status === 'streaming' && messages.length - 1 === index}
-          requiresScrollPadding={
-            hasSentMessage && index === messages.length - 1
-          }
-        />
+        <Fragment key={message.id}>
+          <PreviewMessage
+            chatId={chatId}
+            message={message}
+            isLoading={message.status === 'pending' && messages.length - 1 === index}
+            requiresScrollPadding={
+              hasSentMessage && index === messages.length - 1
+            }
+          />
+
+          {message.status === "pending" &&
+            messages.length > 0 &&
+            messages[messages.length - 1].role === 'user' && <ThinkingMessage />}
+        </Fragment>
       ))}
 
-      {status === 'LoadingMore' &&
-        messages.length > 0 &&
-        messages[messages.length - 1].role === 'user' && <ThinkingMessage />}
 
       <motion.div
         ref={messagesEndRef}

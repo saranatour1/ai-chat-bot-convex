@@ -39,8 +39,8 @@ importers:
         specifier: ^6.35.3
         version: 6.36.4
       '@convex-dev/agent':
-        specifier: 0.1.6
-        version: 0.1.6(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)
+        specifier: 0.1.7-alpha.0
+        version: 0.1.7-alpha.0(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)
       '@convex-dev/auth':
         specifier: ^0.0.86
         version: 0.0.86(@auth/core@0.37.0)(convex@1.24.8(react@19.1.0))(react@19.1.0)
@@ -466,12 +466,12 @@ packages:
   '@codemirror/view@6.36.4':
     resolution: {integrity: sha512-ZQ0V5ovw/miKEXTvjgzRyjnrk9TwriUB1k4R5p7uNnHR9Hus+D1SXHGdJshijEzPFjU25xea/7nhIeSqYFKdbA==}
 
-  '@convex-dev/agent@0.1.6':
-    resolution: {integrity: sha512-xo8GWHPV7lcR2duvXMfsnHdfy+suhPcIohx8yHFU+oS3mkWlEDFuwLxKSsdpX7CCimyEFEv7C/u8WShEWvqsOQ==}
+  '@convex-dev/agent@0.1.7-alpha.0':
+    resolution: {integrity: sha512-PK+VbLQXmFyGsIN43v9H3n0enuEHiPlGexpuGXrNBRMi1qwMvhJP41sm3oOYf01slhbWo2MQSjHmQUPfDhGFIg==}
     peerDependencies:
-      ai: ^4.3.4
+      ai: ^4.3.16
       convex: ^1.23.0
-      convex-helpers: '>=0.1.91-alpha.0 || ^0.1.91'
+      convex-helpers: ^0.1.91
       react: ^18.3.1 || ^19.0.0
     peerDependenciesMeta:
       react:
@@ -4802,7 +4802,7 @@ snapshots:
       style-mod: 4.1.2
       w3c-keyname: 2.2.8
 
-  '@convex-dev/agent@0.1.6(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)':
+  '@convex-dev/agent@0.1.7-alpha.0(ai@4.3.13(react@19.1.0)(zod@3.24.2))(convex-helpers@0.1.92(convex@1.24.8(react@19.1.0))(react@19.1.0)(typescript@5.8.2)(zod@3.24.2))(convex@1.24.8(react@19.1.0))(react@19.1.0)':
     dependencies:
       ai: 4.3.13(react@19.1.0)(zod@3.24.2)
       convex: 1.24.8(react@19.1.0)

@@ -132,7 +132,7 @@ export const createTitleAndSummarizeChat = internalAction({
           title: z.string(),
           summary: z.string()
         })
-      }, { storageOptions: { saveOutputMessages: false, saveAllInputMessages: false, saveAnyInputMessages: false } })
+      }, { storageOptions: { saveMessages: "none" } })
       const t = o.toJsonResponse()
       if (t.ok) {
         const x: Partial<ThreadDoc> = await t.json()
@@ -150,7 +150,7 @@ export const streamMessageAsynchronously = mutation({
 
     const { messageId } = await mainAgent.saveMessage(ctx, {
       threadId,
-      prompt,
+      prompt, 
       // we're in a mutation, so skip embeddings for now. They'll be generated
       // lazily when streaming text.
       skipEmbeddings: true,

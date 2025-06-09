@@ -149,7 +149,6 @@ const submitForm = useCallback(async () => {
     chatId,
 ]);
 
-
   const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -238,13 +237,13 @@ const submitForm = useCallback(async () => {
         )}
       </AnimatePresence>
 
-      {messages.length === 0 &&
+      {!messages.length &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
           <SuggestedActions
             append={handleSubmit}
             chatId={chatId}
-            // selectedVisibilityType={selectedVisibilityType}
+            selectedVisibilityType={"private"}
           />
         )}
 
@@ -314,7 +313,7 @@ const submitForm = useCallback(async () => {
       </div>
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-        {messages.find(m=>m.id === activeMessage?.id)?.status? (
+        {messages[messages.length - 1]?.status === "streaming" ? (
           <StopButton stop={stop} />
         ) : (
           <SendButton
@@ -330,14 +329,6 @@ const submitForm = useCallback(async () => {
 
 export const MultimodalInput = memo(
   PureMultimodalInput,
-  (prevProps, nextProps) => {
-    if (prevProps.input !== nextProps.input) return false;
-    if (!equal(prevProps.attachments, nextProps.attachments)) return false;
-    if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
-      return false;
-
-    return true;
-  },
 );
 
 function PureAttachmentsButton({
@@ -414,8 +405,5 @@ function PureSendButton({
 }
 
 const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
-  if (prevProps.uploadQueue.length !== nextProps.uploadQueue.length)
-    return false;
-  if (prevProps.input !== nextProps.input) return false;
   return true;
 });
