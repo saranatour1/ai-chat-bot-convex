@@ -1,7 +1,7 @@
-import type { Attachment } from 'ai';
 
 import { LoaderIcon } from './icons';
 
+export type Attachment = { url:string, fileId:string};
 export const PreviewAttachment = ({
   attachment,
   isUploading = false,
@@ -9,27 +9,18 @@ export const PreviewAttachment = ({
   attachment: Attachment;
   isUploading?: boolean;
 }) => {
-  const { name, url, contentType } = attachment;
+  const { url, fileId } = attachment;
 
   return (
     <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
       <div className="w-20 h-16 aspect-video bg-muted rounded-md relative flex flex-col items-center justify-center">
-        {contentType ? (
-          contentType.startsWith('image') ? (
-            // NOTE: it is recommended to use next/image for images
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img
               key={url}
               src={url}
-              alt={name ?? 'An image attachment'}
+              alt={fileId ?? 'An image attachment'}
               className="rounded-md size-full object-cover"
             />
-          ) : (
-            <div className="" />
-          )
-        ) : (
-          <div className="" />
-        )}
 
         {isUploading && (
           <div
@@ -40,7 +31,7 @@ export const PreviewAttachment = ({
           </div>
         )}
       </div>
-      <div className="text-xs text-zinc-500 max-w-16 truncate">{name}</div>
+      <div className="text-xs text-zinc-500 max-w-16 truncate">{fileId}</div>
     </div>
   );
 };

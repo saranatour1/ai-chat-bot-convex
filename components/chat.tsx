@@ -2,10 +2,8 @@
 
 import { ChatHeader } from '@/components/chat-header';
 import { api } from '@/convex/_generated/api';
-import type { Attachment } from 'ai';
 import { useMutation, useQuery } from 'convex/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { CanvasHTMLAttributes, ComponentProps, MutableRefObject, Ref, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Messages } from './messages';
 import { MultimodalInput } from './multimodal-input';
 
@@ -14,6 +12,7 @@ import {
   toUIMessages,
   useThreadMessages
 } from "@convex-dev/agent/react";
+import { Attachment } from './preview-attachment';
 
 export function Chat({ chatId }: {
   chatId: string;
@@ -29,8 +28,10 @@ export function Chat({ chatId }: {
 
   const sendMessage = useMutation(
     api.agent.index.streamMessageAsynchronously,
-  ).withOptimisticUpdate(
-    optimisticallySendMessage(api.agent.index.viewThreadMessagesById),
+  ).withOptimisticUpdate((store,args)=>{
+    if(!args.threadId) return;
+    optimisticallySendMessage(api.agent.index.viewThreadMessagesById)
+  }
   );
 
   return (

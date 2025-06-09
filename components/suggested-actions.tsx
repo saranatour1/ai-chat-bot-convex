@@ -7,7 +7,7 @@ import type { VisibilityType } from './visibility-selector';
 
 interface SuggestedActionsProps {
   chatId: string;
-  append: ({ threadId, prompt }: { threadId: string; prompt: string }) => void;
+  append: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId:string }) => void
   selectedVisibilityType?: VisibilityType;
 }
 
@@ -58,7 +58,7 @@ function PureSuggestedActions({
             onClick={async () => {
               window.history.replaceState({}, '', `/chat/${chatId}`);
 
-              append({threadId:chatId, prompt:suggestedAction.action});
+              append({threadId:chatId, prompt:suggestedAction.action, fileId:""});
             }}
             className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
           >

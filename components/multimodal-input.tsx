@@ -13,19 +13,16 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
-
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { UIMessage } from '@convex-dev/agent/react';
-import type { Attachment } from 'ai';
-import equal from 'fast-deep-equal';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
-import { PreviewAttachment } from './preview-attachment';
+import { Attachment, PreviewAttachment } from './preview-attachment';
 import { SuggestedActions } from './suggested-actions';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
 
@@ -37,23 +34,24 @@ function PureMultimodalInput({
   attachments,
   setAttachments,
   messages,
-  selectedVisibilityType="private",
-    className,
+  selectedVisibilityType = "private",
+  className,
 }: {
   chatId: string;
   input: string;
   setInput: (v: string) => void;
-  handleSubmit: ({ threadId, prompt, numberOfMessages }: { threadId: string; prompt: string, numberOfMessages?:number }) => void;
+  handleSubmit: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId:string }) => void;
   attachments: Attachment[];
   setAttachments: (v: Attachment[]) => void;
   messages: UIMessage[];
-  selectedVisibilityType?:string;
-    className?:string;
+  selectedVisibilityType?: string;
+  className?: string;
 }) {
   const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const router = useRouter()
+  const uploadFile = useAction(api.agent.index.uploadFile);
 
 
   useEffect(() => {
@@ -105,72 +103,59 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const lastMessageRef = useRef<UIMessage>()
-  
-  const activeMessage = useMemo(()=>{
-    const active = messages.find(m=> m.status==="streaming")
-    if(active){
-      lastMessageRef.current = active
+
+  const submitForm = useCallback(async () => {
+    try {
+      const threadId = chatId ? chatId : await createEmptyThread();
+
+      if (!threadId) {
+        console.error('Thread ID is undefined.');
+        return;
+      }
+
+      router.push(`/chat/${threadId}`);
+      handleSubmit({ threadId, prompt: input ,fileId:attachments[0].fileId});
+
+      // Reset UI state
+      lastMessageRef.current = undefined;
+      setAttachments([]);
+      setLocalStorageInput('');
+      resetHeight();
+      setInput('');
+
+      if (width && width > 768) {
+        textareaRef.current?.focus();
+      }
+    } catch (error) {
+      console.error('Error during form submission:', error);
     }
-    return active
-  },[messages])
-
-
-const submitForm = useCallback(async () => {
-  try {
-    const threadId = chatId ? chatId : await createEmptyThread();
-
-    if (!threadId) {
-      console.error('Thread ID is undefined.');
-      return;
-    }
-
-    router.push(`/chat/${threadId}`);
-    handleSubmit({ threadId, prompt: input, numberOfMessages:messages.length-1 });
-
-    // Reset UI state
-    lastMessageRef.current = undefined;
-    setAttachments([]);
-    setLocalStorageInput('');
-    resetHeight();
-    setInput('');
-
-    if (width && width > 768) {
-      textareaRef.current?.focus();
-    }
-  } catch (error) {
-    console.error('Error during form submission:', error);
-  }
-}, [
+  }, [
     attachments,
     handleSubmit,
     setAttachments,
     setLocalStorageInput,
     width,
     chatId,
-]);
+  ]);
 
-  const uploadFile = async (file: File) => {
+  const prepareFile = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData,
+      const { fileId, url } = await uploadFile({
+        bytes: await file.arrayBuffer(),
+        filename: file.name,
+        mimeType: file.type,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const { url, pathname, contentType } = data;
-
+      if (fileId && url) {
         return {
           url,
-          name: pathname,
-          contentType: contentType,
+          fileId,
         };
       }
-      const { error } = await response.json();
-      toast.error(error);
+
     } catch (error) {
       toast.error('Failed to upload file, please try again!');
     }
@@ -183,16 +168,13 @@ const submitForm = useCallback(async () => {
       setUploadQueue(files.map((file) => file.name));
 
       try {
-        const uploadPromises = files.map((file) => uploadFile(file));
+        const uploadPromises = files.map((file) => prepareFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
           (attachment) => attachment !== undefined,
         );
 
-        // setAttachments((currentAttachments) => [
-        //   ...currentAttachments,
-        //   ...successfullyUploadedAttachments,
-        // ]);
+        setAttachments([...attachments, ...successfullyUploadedAttachments]);
       } catch (error) {
         console.error('Error uploading files!', error);
       } finally {
@@ -270,8 +252,7 @@ const submitForm = useCallback(async () => {
               key={filename}
               attachment={{
                 url: '',
-                name: filename,
-                contentType: '',
+                fileId:filename,
               }}
               isUploading={true}
             />
@@ -309,7 +290,7 @@ const submitForm = useCallback(async () => {
       />
 
       <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
-        <AttachmentsButton fileInputRef={fileInputRef} status={lastMessageRef.current?.status} />
+        <AttachmentsButton fileInputRef={fileInputRef} status={messages[messages.length - 1]?.status} />
       </div>
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
@@ -336,7 +317,7 @@ function PureAttachmentsButton({
   status,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status:  "streaming" | "pending" | "success" | "failed" | undefined
+  status: "streaming" | "pending" | "success" | "failed" | undefined
 }) {
   return (
     <Button
@@ -346,7 +327,7 @@ function PureAttachmentsButton({
         event.preventDefault();
         fileInputRef.current?.click();
       }}
-      disabled={status !== 'pending'}
+      disabled={status === "pending"}
       variant="ghost"
     >
       <PaperclipIcon size={14} />
@@ -404,6 +385,4 @@ function PureSendButton({
   );
 }
 
-const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
-  return true;
-});
+const SendButton = memo(PureSendButton);

@@ -2,13 +2,14 @@
 // https://github.com/get-convex/agent/blob/main/src/component
 import { google } from '@ai-sdk/google';
 // biome-ignore lint/style/useImportType: <explanation>
-import { Agent, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
+import { Agent, getFile, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
 import { components, internal } from '../_generated/api';
 import { action, internalAction, mutation, query } from '../_generated/server';
 import { z } from 'zod';
+import { Id } from '../_generated/dataModel';
 
 export const mainAgent = new Agent(components.agent, {
   chat: google.chat('gemini-2.5-flash-preview-04-17'),
@@ -106,19 +107,6 @@ export const deleteChatHistory = action({
   },
 });
 
-export const createThreadAndPrompt = action({
-  args: { prompt: v.string() },
-  handler: async (ctx, { prompt }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("not authenticated")
-    // Start a new thread for the user.
-    const { threadId, thread } = await mainAgent.createThread(ctx, { userId });
-    // Creates a user message with the prompt, and an assistant reply message.
-    const result = await thread.generateText({ prompt });
-    return { threadId, text: result.text, };
-  },
-});
-
 export const createTitleAndSummarizeChat = internalAction({
   args: { threadId: v.string(), lastMessageId: v.optional(v.string()) },
   handler: async (ctx, args_0) => {
@@ -145,16 +133,31 @@ export const createTitleAndSummarizeChat = internalAction({
 })
 
 export const streamMessageAsynchronously = mutation({
-  args: { prompt: v.string(), threadId: v.string(), numberOfMessages: v.optional(v.number()) },
-  handler: async (ctx, { prompt, threadId, numberOfMessages }) => {
+  args: { prompt: v.string(), threadId: v.string(), fileId: v.string() },
+  handler: async (ctx, { prompt, threadId, fileId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("not authenticated")
 
+
+    const { filePart, imagePart } = await getFile(
+      ctx,
+      components.agent,
+      fileId
+    )
+  
     const { messageId } = await mainAgent.saveMessage(ctx, {
       threadId,
-      prompt, 
+      userId: userId,
+      message: {
+        role: "user",
+        content: [imagePart ?? filePart, { type: "text", text: prompt }],
+      },
+      metadata: { fileIds: fileId ? [fileId] : undefined },
       // we're in a mutation, so skip embeddings for now. They'll be generated
       // lazily when streaming text.
       skipEmbeddings: true,
     });
+
     await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
       threadId,
       promptMessageId: messageId,
@@ -177,3 +180,39 @@ export const streamMessage = internalAction({
     await result.consumeStream();
   },
 });
+
+
+// validate file upload 
+// Step 1: Upload a file
+export const uploadFile = action({
+  args: {
+    filename: v.string(),
+    mimeType: v.string(),
+    bytes: v.bytes(),
+    sha256: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    // Maybe rate limit how often a user can upload a file / attribute?
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+    const {
+      file: { fileId, url },
+    } = await storeFile(
+      ctx,
+      components.agent,
+      new Blob([args.bytes], { type: args.mimeType }),
+      args.filename,
+      args.sha256,
+    );
+    return { fileId, url };
+  },
+});
+
+export const popFile = action({
+  args: { fileId: v.string() },
+  handler: async (ctx, args_0) => {
+    await ctx.storage.delete(args_0.fileId as Id<"_storage">)
+  },
+})
