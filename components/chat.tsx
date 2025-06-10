@@ -57,7 +57,6 @@ export function Chat({ chatId }: {
             input={input}
             setInput={setInput}
             handleSubmit={sendMessage}
-            // status={messages.isLoading ? "submitted":"streaming"}
             attachments={attachments}
             setAttachments={setAttachments}
             messages={toUIMessages(messages.results)}

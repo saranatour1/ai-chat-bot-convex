@@ -40,7 +40,7 @@ function PureMultimodalInput({
   chatId: string;
   input: string;
   setInput: (v: string) => void;
-  handleSubmit: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId:string }) => void;
+  handleSubmit: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId:string|undefined }) => void;
   attachments: Attachment[];
   setAttachments: (v: Attachment[]) => void;
   messages: UIMessage[];
@@ -114,7 +114,7 @@ function PureMultimodalInput({
       }
 
       router.push(`/chat/${threadId}`);
-      handleSubmit({ threadId, prompt: input ,fileId:attachments?.[0]?.fileId});
+      handleSubmit({ threadId, prompt: input ,fileId:attachments[0].fileId ? attachments?.[0]?.fileId:undefined});
 
       // Reset UI state
       lastMessageRef.current = undefined;

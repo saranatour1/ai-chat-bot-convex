@@ -31,10 +31,6 @@ const PurePreviewMessage = ({
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [visibleText] = useSmoothText(message.content);
-
-    useEffect(()=>{
-      console.log("the message", message)
-    },[message])
   return (
     <AnimatePresence>
       <motion.div
