@@ -1,9 +1,8 @@
 'use client';
 import { cn, sanitizeText } from '@/lib/utils';
 import cx from 'classnames';
-import equal from 'fast-deep-equal';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { DocumentToolCall, DocumentToolResult } from './document';
 import { DocumentPreview } from './document-preview';
 import { PencilEditIcon, SparklesIcon } from './icons';
@@ -33,6 +32,9 @@ const PurePreviewMessage = ({
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [visibleText] = useSmoothText(message.content);
 
+    useEffect(()=>{
+      console.log("the message", message)
+    },[message])
   return (
     <AnimatePresence>
       <motion.div
@@ -64,18 +66,20 @@ const PurePreviewMessage = ({
               'min-h-96': message.role === 'assistant' && requiresScrollPadding,
             })}
           >
-            {message.experimental_attachments &&
-              message.experimental_attachments.length > 0 && (
+            {message.parts &&
+              message.parts.length > 0 && (
                 <div
                   data-testid={`message-attachments`}
                   className="flex flex-row justify-end gap-2"
                 >
-                  {message.experimental_attachments.map((attachment) => (
+                  {message.parts.map((attachment) => {
+                  return attachment.type === "file" ? (
                     <PreviewAttachment
-                      key={attachment.url}
-                      attachment={attachment}
+                      key={attachment.mimeType}
+                      attachment={{url:attachment.data}}
                     />
-                  ))}
+                  ) : null;
+                })}
                 </div>
               )}
 
@@ -224,17 +228,7 @@ const PurePreviewMessage = ({
   );
 };
 
-export const PreviewMessage = memo(
-  PurePreviewMessage,
-  (prevProps, nextProps) => {
-    if (prevProps.isLoading !== nextProps.isLoading) return false;
-    if (prevProps.message.id !== nextProps.message.id) return false;
-    if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding)
-      return false;
-    if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-    return true;
-  },
-);
+export const PreviewMessage = memo(PurePreviewMessage);
 
 export const ThinkingMessage = () => {
   const role = 'assistant';

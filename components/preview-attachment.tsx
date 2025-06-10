@@ -1,13 +1,14 @@
 
+import { Attachment as Att } from 'ai';
 import { LoaderIcon } from './icons';
 
-export type Attachment = { url:string, fileId:string};
+export type Attachment = Att & {fileId?:string};
 export const PreviewAttachment = ({
   attachment,
   isUploading = false,
 }: {
   attachment: Attachment;
-  isUploading?: boolean;
+    isUploading?: boolean;
 }) => {
   const { url, fileId } = attachment;
 
@@ -15,12 +16,14 @@ export const PreviewAttachment = ({
     <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
       <div className="w-20 h-16 aspect-video bg-muted rounded-md relative flex flex-col items-center justify-center">
 
-            <img
-              key={url}
-              src={url}
-              alt={fileId ?? 'An image attachment'}
-              className="rounded-md size-full object-cover"
-            />
+        {url && url.length > 0 ? <img
+          key={url}
+          src={url}
+          alt={fileId ?? 'An image attachment'}
+          className="rounded-md size-full object-cover"
+        /> : <div className="animate-spin absolute bg-zinc-500">
+
+        </div>}
 
         {isUploading && (
           <div

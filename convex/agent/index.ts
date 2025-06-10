@@ -133,35 +133,55 @@ export const createTitleAndSummarizeChat = internalAction({
 })
 
 export const streamMessageAsynchronously = mutation({
-  args: { prompt: v.string(), threadId: v.string(), fileId: v.string() },
+  args: { prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string())},
   handler: async (ctx, { prompt, threadId, fileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
 
 
-    const { filePart, imagePart } = await getFile(
-      ctx,
-      components.agent,
-      fileId
-    )
-  
-    const { messageId } = await mainAgent.saveMessage(ctx, {
-      threadId,
-      userId: userId,
-      message: {
-        role: "user",
-        content: [imagePart ?? filePart, { type: "text", text: prompt }],
-      },
-      metadata: { fileIds: fileId ? [fileId] : undefined },
-      // we're in a mutation, so skip embeddings for now. They'll be generated
-      // lazily when streaming text.
-      skipEmbeddings: true,
-    });
+    if (fileId) {
+      const { filePart, imagePart } = await getFile(
+        ctx,
+        components.agent,
+        fileId
+      )
+      const { messageId } = await mainAgent.saveMessage(ctx, {
+        threadId,
+        userId: userId,
+        message: {
+          role: "user",
+          content: [imagePart ?? filePart, { type: "text", text: prompt }],
+        },
+        metadata: { fileIds: fileId ? [fileId] : undefined },
+        // we're in a mutation, so skip embeddings for now. They'll be generated
+        // lazily when streaming text.
+        skipEmbeddings: true,
+      });
 
-    await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
-      threadId,
-      promptMessageId: messageId,
-    });
+      await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
+        threadId,
+        promptMessageId: messageId,
+      });
+    } else {
+      const { messageId } = await mainAgent.saveMessage(ctx, {
+        threadId,
+        userId: userId,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: prompt }],
+        },
+        metadata: { fileIds: fileId ? [fileId] : undefined },
+        // we're in a mutation, so skip embeddings for now. They'll be generated
+        // lazily when streaming text.
+        skipEmbeddings: true,
+      });
+
+      await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
+        threadId,
+        promptMessageId: messageId,
+      });
+    }
+
 
     await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
       threadId: threadId

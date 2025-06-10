@@ -114,7 +114,7 @@ function PureMultimodalInput({
       }
 
       router.push(`/chat/${threadId}`);
-      handleSubmit({ threadId, prompt: input ,fileId:attachments[0].fileId});
+      handleSubmit({ threadId, prompt: input ,fileId:attachments?.[0]?.fileId});
 
       // Reset UI state
       lastMessageRef.current = undefined;
