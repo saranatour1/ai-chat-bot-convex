@@ -40,7 +40,7 @@ function PureMultimodalInput({
   chatId: string;
   input: string;
   setInput: (v: string) => void;
-  handleSubmit: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId:string|undefined }) => void;
+  handleSubmit: ({ threadId, prompt, fileId }: { threadId: string; prompt: string, fileId: string | undefined }) => void;
   attachments: Attachment[];
   setAttachments: (v: Attachment[]) => void;
   messages: UIMessage[];
@@ -52,7 +52,7 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const router = useRouter()
   const uploadFile = useAction(api.agent.index.uploadFile);
-
+  const stopAction = useAction(api.agent.index.stopStreaming)
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -114,7 +114,7 @@ function PureMultimodalInput({
       }
 
       router.push(`/chat/${threadId}`);
-      handleSubmit({ threadId, prompt: input ,fileId:attachments[0].fileId ? attachments?.[0]?.fileId:undefined});
+      handleSubmit({ threadId, prompt: input, fileId: attachments[0]?.fileId ? attachments?.[0]?.fileId : undefined });
 
       // Reset UI state
       lastMessageRef.current = undefined;
@@ -252,7 +252,7 @@ function PureMultimodalInput({
               key={filename}
               attachment={{
                 url: '',
-                fileId:filename,
+                fileId: filename,
               }}
               isUploading={true}
             />
@@ -295,7 +295,7 @@ function PureMultimodalInput({
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
         {messages[messages.length - 1]?.status === "streaming" ? (
-          <StopButton stop={stop} />
+          <StopButton stop={() => stopAction({ threadId: chatId })} />
         ) : (
           <SendButton
             input={input}

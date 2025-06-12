@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { Id } from '../_generated/dataModel';
 
 export const mainAgent = new Agent(components.agent, {
-  chat: google.chat('gemini-2.5-flash-preview-04-17'),
+  chat: google.chat('gemini-2.0-flash-001'),
   textEmbedding: google.textEmbeddingModel(`text-embedding-004`),
   contextOptions: {
     recentMessages: 20,
@@ -77,7 +77,7 @@ export const viewThreadMessagesById = query({
       threadId,
       paginationOpts,
     });
-
+    
     return {
       ...paginated,
       streams,
@@ -201,6 +201,14 @@ export const streamMessage = internalAction({
   },
 });
 
+export const stopStreaming = action({
+  args:{ threadId: v.string()},
+  handler:async(ctx, args_0)=> {
+    await ctx.runMutation(components.agent.streams.finish,{
+      streamId: args_0.threadId
+    })
+  },
+})
 
 // validate file upload 
 // Step 1: Upload a file
