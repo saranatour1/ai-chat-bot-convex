@@ -77,7 +77,7 @@ export const viewThreadMessagesById = query({
       threadId,
       paginationOpts,
     });
-    
+
     return {
       ...paginated,
       streams,
@@ -133,7 +133,7 @@ export const createTitleAndSummarizeChat = internalAction({
 })
 
 export const streamMessageAsynchronously = mutation({
-  args: { prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string())},
+  args: { prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string()) },
   handler: async (ctx, { prompt, threadId, fileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
@@ -202,12 +202,20 @@ export const streamMessage = internalAction({
 });
 
 export const stopStreaming = action({
-  args:{ threadId: v.string()},
-  handler:async(ctx, args_0)=> {
-    await ctx.runMutation(components.agent.streams.finish,{
-      streamId: args_0.threadId
-    })
-  },
+  args: { threadId: v.string() },
+  handler: async (ctx, args_0) => {
+   // Not properly working
+    const data = await ctx.runQuery(components.agent.streams.list, { threadId: args_0.threadId })
+    if (data[0]) {
+      console.log("I ran", data[0].streamId)
+      await ctx.runMutation(components.agent.streams.finish, {
+        streamId: data?.[0]?.streamId
+      })
+
+    } else {
+      console.log("none are running right now")
+    }
+  }
 })
 
 // validate file upload 
