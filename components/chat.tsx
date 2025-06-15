@@ -43,15 +43,12 @@ export function Chat({ chatId }: {
           selectedVisibilityType={"private"}
           isReadonly={false}
         />
-
         <Messages
           chatId={chatId}
           status={messages.status}
           messages={toUIMessages(messages.results)}
         />
-
         <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-
           <MultimodalInput
             chatId={chatId}
             input={input}
@@ -82,7 +79,7 @@ export function Chat({ chatId }: {
         votes={votes}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
-      /> */}
+      />  */}
     </>
   );
 }
