@@ -1,10 +1,10 @@
 'use client';
-import { cn, sanitizeText } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import cx from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useEffect, useState } from 'react';
-import { DocumentToolCall, DocumentToolResult } from './document';
-import { DocumentPreview } from './document-preview';
+import { memo, useState } from 'react';
+// import { DocumentToolCall, DocumentToolResult } from './document';
+// import { DocumentPreview } from './document-preview';
 import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
@@ -13,7 +13,6 @@ import { MessageReasoning } from './message-reasoning';
 import { PreviewAttachment } from './preview-attachment';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { Weather } from './weather';
 
 import { useSmoothText, type UIMessage } from '@convex-dev/agent/react';
 
@@ -143,72 +142,72 @@ const PurePreviewMessage = ({
                 }
               }
 
-              if (type === 'tool-invocation') {
-                const { toolInvocation } = part;
-                const { toolName, toolCallId, state } = toolInvocation;
+              // if (type === 'tool-invocation') {
+              //   const { toolInvocation } = part;
+              //   const { toolName, toolCallId, state } = toolInvocation;
 
-                if (state === 'call') {
-                  const { args } = toolInvocation;
+              //   if (state === 'call') {
+              //     const { args } = toolInvocation;
 
-                  return (
-                    <div
-                      key={toolCallId}
-                      className={cx({
-                        skeleton: ['getWeather'].includes(toolName),
-                      })}
-                    >
-                      {toolName === 'getWeather' ? (
-                        <Weather />
-                      ) : toolName === 'createDocument' ? (
-                        <DocumentPreview isReadonly={false} args={args} />
-                      ) : toolName === 'updateDocument' ? (
-                        <DocumentToolCall
-                          type="update"
-                          args={args}
-                          isReadonly={false}
-                        />
-                      ) : toolName === 'requestSuggestions' ? (
-                        <DocumentToolCall
-                          type="request-suggestions"
-                          args={args}
-                          isReadonly={false}
-                        />
-                      ) : null}
-                    </div>
-                  );
-                }
+              //     return (
+              //       <div
+              //         key={toolCallId}
+              //         className={cx({
+              //           skeleton: ['getWeather'].includes(toolName),
+              //         })}
+              //       >
+              //         {toolName === 'getWeather' ? (
+              //           <Weather />
+              //         ) : toolName === 'createDocument' ? (
+              //           <DocumentPreview isReadonly={false} args={args} />
+              //         ) : toolName === 'updateDocument' ? (
+              //           <DocumentToolCall
+              //             type="update"
+              //             args={args}
+              //             isReadonly={false}
+              //           />
+              //         ) : toolName === 'requestSuggestions' ? (
+              //           <DocumentToolCall
+              //             type="request-suggestions"
+              //             args={args}
+              //             isReadonly={false}
+              //           />
+              //         ) : null}
+              //       </div>
+              //     );
+              //   }
 
-                if (state === 'result') {
-                  const { result } = toolInvocation;
+              //   if (state === 'result') {
+              //     const { result } = toolInvocation;
 
-                  return (
-                    <div key={toolCallId}>
-                      {toolName === 'getWeather' ? (
-                        <Weather weatherAtLocation={result} />
-                      ) : toolName === 'createDocument' ? (
-                        <DocumentPreview
-                          isReadonly={false}
-                          result={result}
-                        />
-                      ) : toolName === 'updateDocument' ? (
-                        <DocumentToolResult
-                          type="update"
-                          result={result}
-                          isReadonly={false}
-                        />
-                      ) : toolName === 'requestSuggestions' ? (
-                        <DocumentToolResult
-                          type="request-suggestions"
-                          result={result}
-                          isReadonly={false}
-                        />
-                      ) : (
-                        <pre>{JSON.stringify(result, null, 2)}</pre>
-                      )}
-                    </div>
-                  );
-                }
-              }
+              //     return (
+              //       <div key={toolCallId}>
+              //         {toolName === 'getWeather' ? (
+              //           <Weather weatherAtLocation={result} />
+              //         ) : toolName === 'createDocument' ? (
+              //           <DocumentPreview
+              //             isReadonly={false}
+              //             result={result}
+              //           />
+              //         ) : toolName === 'updateDocument' ? (
+              //           <DocumentToolResult
+              //             type="update"
+              //             result={result}
+              //             isReadonly={false}
+              //           />
+              //         ) : toolName === 'requestSuggestions' ? (
+              //           <DocumentToolResult
+              //             type="request-suggestions"
+              //             result={result}
+              //             isReadonly={false}
+              //           />
+              //         ) : (
+              //           <pre>{JSON.stringify(result, null, 2)}</pre>
+              //         )}
+              //       </div>
+              //     );
+              //   }
+              // }
             })}
 
               <MessageActions

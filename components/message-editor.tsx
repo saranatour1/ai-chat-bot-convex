@@ -2,7 +2,6 @@
 import type { UIMessage } from '@convex-dev/agent/react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { deleteTrailingMessages } from '@/app/(chat)/actions';
 import { useEffect, useRef, useState } from 'react';
 
 
@@ -60,26 +59,6 @@ export function MessageEditor({
           disabled={isSubmitting}
           onClick={async () => {
             setIsSubmitting(true);
-
-            await deleteTrailingMessages({
-              id: message.id,
-            });
-
-            // setMessages((messages) => {
-            //   const index = messages.findIndex((m:UIMessage) => m.id === message.id);
-
-            //   if (index !== -1) {
-            //     const updatedMessage = {
-            //       ...message,
-            //       content: draftContent,
-            //       parts: [{ type: 'text', text: draftContent }],
-            //     };
-
-            //     return [...messages.slice(0, index), updatedMessage];
-            //   }
-
-            //   return messages;
-            // });
 
             setMode('view');
           }}

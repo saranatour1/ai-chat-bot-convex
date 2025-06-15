@@ -10,6 +10,7 @@ import { MultimodalInput } from './multimodal-input';
 import {
   optimisticallySendMessage,
   toUIMessages,
+  useStreamingThreadMessages,
   useThreadMessages
 } from "@convex-dev/agent/react";
 import { Attachment } from './preview-attachment';
