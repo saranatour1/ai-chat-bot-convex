@@ -17,7 +17,6 @@ export const mainAgent = new Agent(components.agent, {
   contextOptions: {
     recentMessages: 20,
     searchOtherThreads: true,
-    includeToolCalls: true,
   },
   storageOptions: {
     saveAllInputMessages: true,
@@ -72,7 +71,7 @@ export const viewThreadMessagesById = query({
   },
   handler: async (ctx, args_0) => {
     const { threadId, paginationOpts, streamArgs } = args_0;
-    const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs });
+    const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs, includeStatuses:["aborted","streaming","finished"] });
     const paginated = await mainAgent.listMessages(ctx, {
       threadId,
       paginationOpts,
@@ -207,9 +206,10 @@ export const stopStreaming = action({
    // Not properly working
     const data = await ctx.runQuery(components.agent.streams.list, { threadId: args_0.threadId })
     if (data[0]) {
-      console.log("I ran", data[0].streamId)
-      await ctx.runMutation(components.agent.streams.finish, {
-        streamId: data?.[0]?.streamId
+      // console.log("I ran", data[0].streamId)
+      await ctx.runMutation(components.agent.streams.abort, {
+        streamId: data?.[0]?.streamId,
+        reason:"aborted"
       })
 
     } else {

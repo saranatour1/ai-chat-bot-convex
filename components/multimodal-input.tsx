@@ -192,6 +192,12 @@ function PureMultimodalInput({
     }
   }, [messages, scrollToBottom]);
 
+  useEffect(()=>{
+    console.log("messages", messages)
+    
+    console.log("last message", messages[messages.length-1])
+  },[messages])
+
   return (
     <div className="relative w-full flex flex-col gap-4">
       <AnimatePresence>
@@ -295,7 +301,7 @@ function PureMultimodalInput({
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
         {messages[messages.length - 1]?.status === "streaming" ? (
-          <StopButton stop={() => stopAction({ threadId:chatId})} />
+          <StopButton stop={() => stopAction({ threadId:chatId })} />
         ) : (
           <SendButton
             input={input}

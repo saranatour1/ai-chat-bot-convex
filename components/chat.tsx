@@ -19,7 +19,6 @@ export function Chat({ chatId }: {
   chatId: string;
 }) {
   const [input, setInput] = useState<string>("")
-  const thread = useQuery(api.agent.index.getThreadById, chatId && chatId !== undefined ? { threadId: chatId } : "skip")
 
   const messages = useThreadMessages(api.agent.index.viewThreadMessagesById,
     chatId ? { threadId: chatId } : "skip",
