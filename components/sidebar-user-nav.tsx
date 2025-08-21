@@ -85,7 +85,7 @@ export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
               <button
                 type="button"
                 className="w-full cursor-pointer"
-                onClick={() => {
+                onClick={async() => {
                   if (isLoading) {
                     toast({
                       type: 'error',
@@ -95,12 +95,7 @@ export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
 
                     return;
                   }
-
-                  if (!isGuest) {
-                    router.push('/login');
-                  } else {
-                    signOut().then(()=>router.push('/'))
-                  }
+                  await signOut()
                 }}
               >
                 {isGuest ? 'Login to your account' : 'Sign out'}
