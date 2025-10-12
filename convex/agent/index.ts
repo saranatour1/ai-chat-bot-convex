@@ -2,7 +2,7 @@
 // https://github.com/get-convex/agent/blob/main/src/component
 import { google } from '@ai-sdk/google';
 // biome-ignore lint/style/useImportType: <explanation>
-import { Agent, getFile, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
+import { Agent, getFile, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
@@ -12,18 +12,14 @@ import { z } from 'zod';
 import { Id } from '../_generated/dataModel';
 
 export const mainAgent = new Agent(components.agent, {
-  chat: google.chat('gemini-2.0-flash-001'),
-  textEmbedding: google.textEmbeddingModel(`text-embedding-004`),
-  contextOptions: {
-    recentMessages: 20,
-    searchOtherThreads: true,
-  },
-  storageOptions: {
-    saveAllInputMessages: true,
-    saveAnyInputMessages: true,
-    saveOutputMessages: true,
+  languageModel: google.chat('gemini-2.5-flash'),
+  name:"Random Agent",
+   instructions: "You are a helpful assistant.",
+  storageOptions:{
+    saveMessages:'all',
   },
   maxSteps: 10,
+  stopWhen: stepCountIs(30)
 });
 
 // list threads by userId
@@ -239,8 +235,6 @@ export const uploadFile = action({
       ctx,
       components.agent,
       new Blob([args.bytes], { type: args.mimeType }),
-      args.filename,
-      args.sha256,
     );
     return { fileId, url };
   },
