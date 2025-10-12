@@ -1,7 +1,4 @@
-// here we do everything for the backend according to these files in agent defined here
-// https://github.com/get-convex/agent/blob/main/src/component
 import { google } from '@ai-sdk/google';
-// biome-ignore lint/style/useImportType: <explanation>
 import { Agent, getFile, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
@@ -13,13 +10,18 @@ import { Id } from '../_generated/dataModel';
 
 export const mainAgent = new Agent(components.agent, {
   languageModel: google.chat('gemini-2.5-flash'),
-  name:"Random Agent",
-   instructions: "You are a helpful assistant.",
-  storageOptions:{
-    saveMessages:'all',
+  name: "Random Agent",
+  instructions: "You are a helpful assistant.",
+  storageOptions: {
+    saveMessages: 'all',
   },
   maxSteps: 10,
-  stopWhen: stepCountIs(30)
+  stopWhen: stepCountIs(30),
+  tools: [
+    google.tools.googleSearch({}),
+    google.tools.urlContext({}),
+    google.tools.codeExecution({})
+  ]
 });
 
 // list threads by userId
@@ -67,7 +69,7 @@ export const viewThreadMessagesById = query({
   },
   handler: async (ctx, args_0) => {
     const { threadId, paginationOpts, streamArgs } = args_0;
-    const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs, includeStatuses:["aborted","streaming","finished"] });
+    const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs, includeStatuses: ["aborted", "streaming", "finished"] });
     const paginated = await mainAgent.listMessages(ctx, {
       threadId,
       paginationOpts,
@@ -199,13 +201,13 @@ export const streamMessage = internalAction({
 export const stopStreaming = action({
   args: { threadId: v.string() },
   handler: async (ctx, args_0) => {
-   // Not properly working
+    // Not properly working
     const data = await ctx.runQuery(components.agent.streams.list, { threadId: args_0.threadId })
     if (data[0]) {
       // console.log("I ran", data[0].streamId)
       await ctx.runMutation(components.agent.streams.abort, {
         streamId: data?.[0]?.streamId,
-        reason:"aborted"
+        reason: "aborted"
       })
 
     } else {
