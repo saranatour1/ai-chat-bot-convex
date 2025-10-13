@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { Agent, getFile, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
+import { Agent, getFile, listUIMessages, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
@@ -70,7 +70,7 @@ export const viewThreadMessagesById = query({
   handler: async (ctx, args_0) => {
     const { threadId, paginationOpts, streamArgs } = args_0;
     const streams = await mainAgent.syncStreams(ctx, { threadId, streamArgs, includeStatuses: ["aborted", "streaming", "finished"] });
-    const paginated = await mainAgent.listMessages(ctx, {
+    const paginated = await listUIMessages(ctx, components.agent, {
       threadId,
       paginationOpts,
     });
@@ -130,11 +130,15 @@ export const createTitleAndSummarizeChat = internalAction({
 })
 
 export const streamMessageAsynchronously = mutation({
-  args: { prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string()) },
+  args: {
+    prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string()), body: v.optional(v.object({
+      model: v.string(),
+      tools: v.array(v.string())
+    }))
+  },
   handler: async (ctx, { prompt, threadId, fileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
-
 
     if (fileId) {
       const { filePart, imagePart } = await getFile(
@@ -225,20 +229,24 @@ export const uploadFile = action({
     bytes: v.bytes(),
     sha256: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { filename, mimeType, bytes, sha256 }) => {
     const userId = await getAuthUserId(ctx);
     // Maybe rate limit how often a user can upload a file / attribute?
     if (!userId) {
       throw new Error("Unauthorized");
     }
-    const {
-      file: { fileId, url },
-    } = await storeFile(
+    const { file } = await storeFile(
       ctx,
       components.agent,
-      new Blob([args.bytes], { type: args.mimeType }),
+      new Blob([bytes], { type: mimeType }),
+      {
+        filename,
+        sha256,
+      },
     );
-    return { fileId, url };
+    
+    const { fileId, url, storageId } = file;
+    return {fileId, url, storageId}
   },
 });
 
