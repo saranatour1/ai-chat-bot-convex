@@ -141,10 +141,9 @@ export const streamMessageAsynchronously = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
 
-    if (fileIds && fileIds.length > 0) {
+    if (fileIds) {
+      console.log("I've been called", fileIds)
       const { filePart, imagePart } = await getFile(ctx, components.agent, fileIds)
-
-
       const { messageId } = await mainAgent.saveMessage(ctx, {
         threadId,
         userId: userId,
@@ -181,7 +180,6 @@ export const streamMessageAsynchronously = mutation({
         promptMessageId: messageId,
       });
     }
-
 
     await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
       threadId: threadId

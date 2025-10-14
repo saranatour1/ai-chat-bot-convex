@@ -22,12 +22,12 @@ import {
   usePromptInputAttachments
 } from '@/components/ai-elements/prompt-input';
 import { api } from '@/convex/_generated/api';
-import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
+import { optimisticallySendMessage, UIMessage, useUIMessages } from "@convex-dev/agent/react";
 import { Action } from '@radix-ui/react-alert-dialog';
 import { useAction, useMutation } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { Actions } from './ai-elements/actions';
 import { Conversation, ConversationContent, ConversationScrollButton } from './ai-elements/conversation';
@@ -37,6 +37,9 @@ import { Response } from './ai-elements/response';
 import { Source, Sources, SourcesContent, SourcesTrigger } from './ai-elements/sources';
 import { ChatHeader } from './chat-header';
 import { Id } from '@/convex/_generated/dataModel';
+import { Image } from '@/components/ai-elements/image';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from './ai-elements/tool';
+import { ToolUIPart, UIMessagePart } from 'ai';
 
 const models = [
   {
@@ -76,49 +79,54 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     threadId ? { threadId } : 'skip',
     { initialNumItems: 10, stream: true },
   );
-
-  const handleSubmit = useCallback(async (message: PromptInputMessage) => {
-    try {
-      const hasText = Boolean(message.text);
-      const hasAttachments = Boolean(message.files?.length);
-
-      if (!(hasText || hasAttachments)) {
-        return;
+  
+  
+    const handleSubmit = useCallback(async (message: PromptInputMessage) => {
+      try {
+        const hasText = Boolean(message.text);
+        const hasAttachments = Boolean(message.files?.length);
+  
+        if (!(hasText || hasAttachments)) {
+          return;
+        }
+        const chatId = threadId ? threadId : await createEmptyThread();
+  
+        if (!chatId) {
+          console.error('Thread ID is undefined.');
+          return;
+        }
+        router.push(`/chat/${chatId}`);
+  
+        // console.log(attachments) // here its empty
+        sendMessage({
+          prompt: message.text || 'Sent with attachments',
+          threadId: threadId,
+          fileIds: attachments[0] ? attachments[0].fileId :undefined
+        },
+        );
+        setInput('');
+        setAttachments([]);
+        setLocalStorageInput('');
+        setInput('');
+      } catch (e) {
+        console.error(e)
       }
-      const chatId = threadId ? threadId : await createEmptyThread();
-
-      if (!chatId) {
-        console.error('Thread ID is undefined.');
-        return;
-      }
-      router.push(`/chat/${chatId}`);
-
-      sendMessage({
-        prompt: message.text || 'Sent with attachments',
-        threadId: threadId,
-        // fileId
-      },
-      );
-      setInput('');
-      setAttachments([]);
-      setLocalStorageInput('');
-      setInput('');
-    } catch (e) {
-      console.error(e)
-    }
-  }, [threadId])
-
-
+    }, [threadId,attachments])
+  
   useEffect(() => {
     if (input) {
       const finalValue = input || localStorageInput || '';
       setInput(finalValue);
     }
   }, []);
-
+  
   useEffect(() => {
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
+
+  // useEffect(()=>{
+  //   console.log(messages)
+  // },[messages])
 
   return <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
     <div className="flex flex-col h-full">
@@ -190,6 +198,21 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                         <ReasoningContent>{part.text}</ReasoningContent>
                       </Reasoning>
                     );
+                    // case 'dynamic-tool':
+                    //   const toolCall = message.parts.find(part => part.type === 'dynamic-tool');
+                    //   return (
+                    //       <div style={{ height: '500px' }}>
+                    //     <Tool>
+                    //       <ToolHeader type={toolCall.type} state={toolCall.state} />
+                    //       <ToolContent>
+                    //         <ToolInput input={toolCall.input} />
+                    //         {toolCall.state === 'output-available' && (
+                    //           <ToolOutput errorText={toolCall.errorText} output={toolCall.output} />
+                    //         )}
+                    //       </ToolContent>
+                    //     </Tool>
+                    //   </div>
+                    //   )
                   default:
                     return null;
                 }
@@ -200,8 +223,6 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-
-
 
       <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop maxFiles={1} multiple={false}>
         <PromptInputBody>
@@ -247,8 +268,6 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
           <PromptInputSubmit disabled={!input && !status} />
         </PromptInputToolbar>
       </PromptInput>
-
-
     </div>
   </div>
 }
@@ -260,7 +279,7 @@ type File = {
 
 interface TempChatProps {
   attachments: File[],
-  setAttachments: (f: File[]) => void;
+  setAttachments: Dispatch<SetStateAction<File[]>>
 }
 
 const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
@@ -270,7 +289,7 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
   
   useEffect(()=>{
     const handleUploadingFiles = async (e: any) => {
-      console.log("I've been called")
+      // console.log("I've been called")
       const target = e.target as HTMLInputElement;
       const filesFromRef = Array.from(target.files || []);
   
@@ -298,8 +317,8 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
           })
         );
   
-        setAttachments(uploadedFiles)
-        console.log("Uploaded files:", uploadedFiles);
+        setAttachments(uploadedFiles);
+        // console.log("Uploaded files:", uploadedFiles);
         return uploadedFiles;
       } catch (error) {
         console.error("Error uploading files:", error);
@@ -313,7 +332,8 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
     return fileInputRef.current?.removeEventListener('change', (e)=>{
       handleUploadingFiles(e)
     })
-  },[fileInputRef, attachments,setAttachments])
+  },[fileInputRef, setAttachments])
+
   return <PromptInputAttachments>
     {(attachment) => <PromptInputAttachment data={attachment} />}
   </PromptInputAttachments>
