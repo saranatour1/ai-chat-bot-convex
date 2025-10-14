@@ -2,7 +2,7 @@
 
 import { generateText, type UIMessage } from 'ai';
 import { cookies } from 'next/headers';
-import type { VisibilityType } from '@/components/visibility-selector';
+// import type { VisibilityType } from '@/components/visibility-selector';
 import { myProvider } from '@/lib/ai/providers';
 
 export async function saveChatModelAsCookie(model: string) {
@@ -30,10 +30,10 @@ export async function generateTitleFromUserMessage({
 
 export async function updateChatVisibility({
   chatId,
-  visibility,
+  // visibility,
 }: {
   chatId: string;
-  visibility: VisibilityType;
+  // visibility: VisibilityType;
 }) {
 
 }
