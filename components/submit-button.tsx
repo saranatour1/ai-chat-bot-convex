@@ -1,10 +1,8 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-
-import { LoaderIcon } from '@/components/icons';
-
 import { Button } from './ui/button';
+import { Spinner } from './ui/spinner';
 
 export function SubmitButton({
   children,
@@ -26,7 +24,10 @@ export function SubmitButton({
 
       {(pending || isSuccessful) && (
         <span className="animate-spin absolute right-4">
-          <LoaderIcon />
+          <Spinner
+            role="status"
+            aria-label="Loading"
+          />
         </span>
       )}
 

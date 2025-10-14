@@ -8,7 +8,8 @@ import {
   getChatHistoryPaginationKey,
   type ChatHistory,
 } from '@/components/sidebar-history';
-import type { VisibilityType } from '@/components/visibility-selector';
+
+type VisibilityType = 'private'|'public'
 
 export function useChatVisibility({
   chatId,
@@ -40,7 +41,7 @@ export function useChatVisibility({
 
     updateChatVisibility({
       chatId: chatId,
-      visibility: updatedVisibilityType,
+      // visibility: updatedVisibilityType,
     });
   };
 

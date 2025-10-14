@@ -3,7 +3,7 @@
 import { z } from 'zod';
 
 const authFormSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6),
   flow: z.enum(['signIn', 'signUp', 'reset']).optional().default('signIn'),
 });

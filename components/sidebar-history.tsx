@@ -24,10 +24,10 @@ import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { LoaderIcon } from './icons';
 import { ChatItem } from './sidebar-history-item';
 // biome-ignore lint/style/useImportType: <explanation>
 import { ThreadDoc } from '@convex-dev/agent';
+import { Spinner } from './ui/spinner';
 
 type GroupedChats = {
   today: ThreadDoc[];
@@ -305,7 +305,7 @@ export function SidebarHistory({ user }: { user: Doc<"users"> }) {
           {status === "CanLoadMore" ? null : status === "LoadingMore" ? (
             <div className="p-2 text-zinc-500 dark:text-zinc-400 flex flex-row gap-2 items-center mt-8">
               <div className="animate-spin">
-                <LoaderIcon />
+                <Spinner />
               </div>
               <div>Loading chats...</div>
             </div>

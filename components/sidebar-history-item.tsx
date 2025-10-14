@@ -3,13 +3,13 @@ import type { ThreadDoc } from '@convex-dev/agent';
 import Link from 'next/link';
 import { memo } from 'react';
 import {
-  CheckCircleFillIcon,
+  CheckCircle2Icon,
   GlobeIcon,
   LockIcon,
   MoreHorizontalIcon,
   ShareIcon,
   TrashIcon,
-} from './icons';
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +86,7 @@ const PureChatItem = ({
                     <span>Private</span>
                   </div>
                   {visibilityType === 'private' ? (
-                    <CheckCircleFillIcon />
+                    <CheckCircle2Icon />
                   ) : null}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -99,7 +99,7 @@ const PureChatItem = ({
                     <GlobeIcon />
                     <span>Public</span>
                   </div>
-                  {visibilityType === 'public' ? <CheckCircleFillIcon /> : null}
+                  {visibilityType === 'public' ? <CheckCircle2Icon /> : null}
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>

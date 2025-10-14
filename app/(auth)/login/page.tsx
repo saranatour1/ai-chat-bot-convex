@@ -2,13 +2,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
-import { toast } from '@/components/toast';
 
 import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
 
 import { login, type LoginActionState } from '../actions';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { toast } from 'sonner';
 
 export default function Page() {
   const router = useRouter();
@@ -25,15 +25,9 @@ export default function Page() {
 
   useEffect(() => {
     if (state.status === 'failed') {
-      toast({
-        type: 'error',
-        description: 'Invalid credentials!',
-      });
+      toast.error('Invalid credentials!');
     } else if (state.status === 'invalid_data') {
-      toast({
-        type: 'error',
-        description: 'Failed validating your submission!',
-      });
+      toast.error('Failed validating your submission!');
     } else if (state.status === 'success' && state.data) {
       console.log(state.data)
       void signIn('password', state.data)

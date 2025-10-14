@@ -1,16 +1,14 @@
-import { Chat } from '@/components/chat';
+import { ChatLayout } from "@/components/chat-layout";
 
-interface PageProps{
-  params:Promise<{id:string}>
+interface PageProps {
+  params: Promise<{ id: string }>
 }
 
-export default async function Page({params}:PageProps) {
-  const {id} = (await params)
+export default async function Page({ params }: PageProps) {
+  const { id } = (await params)
   return (
     <>
-      <Chat
-        chatId={id}
-      />
+      <ChatLayout threadId={id} />
       {/* <DataStreamHandler id={id} /> */}
     </>
   );

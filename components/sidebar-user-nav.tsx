@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import { ChevronUp } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -20,8 +20,8 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import type { Doc } from '@convex-dev/auth/server';
 import { useConvexAuth } from 'convex/react';
 import { useRouter } from 'next/navigation';
-import { LoaderIcon } from './icons';
-import { toast } from './toast';
+import { Spinner } from './ui/spinner';
+import { toast } from 'sonner';
 
 export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
                   </span>
                 </div>
                 <div className="animate-spin text-zinc-500">
-                  <LoaderIcon />
+                  <Spinner />
                 </div>
               </SidebarMenuButton>
             ) : (
@@ -87,12 +87,8 @@ export function SidebarUserNav({ user }: { user: Doc<"users"> }) {
                 className="w-full cursor-pointer"
                 onClick={async() => {
                   if (isLoading) {
-                    toast({
-                      type: 'error',
-                      description:
-                        'Checking authentication status, please try again!',
-                    });
-
+                    toast.error('Checking authentication status, please try again!')
+        
                     return;
                   }
                   await signOut()

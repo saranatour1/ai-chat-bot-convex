@@ -9,7 +9,7 @@ export default async function Layout({
   return (
     <>
       <SidebarProvider>
-        <AppSidebar  />
+        <AppSidebar />
         <SidebarInset>{children}</SidebarInset>
       </SidebarProvider>
     </>

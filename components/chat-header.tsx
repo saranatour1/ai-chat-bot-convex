@@ -4,25 +4,25 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWindowSize } from 'usehooks-ts';
 
-import { ModelSelector } from '@/components/model-selector';
-import { SidebarToggle } from '@/components/sidebar-toggle';
+// import { ModelSelector } from '@/components/model-selector';
+// import { SidebarToggle } from '@/components/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { Github } from 'lucide-react';
 import { memo } from 'react';
-import { PlusIcon } from './icons';
-import { useSidebar } from './ui/sidebar';
+import { PlusIcon } from 'lucide-react';
+import { SidebarTrigger, useSidebar } from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { type VisibilityType, VisibilitySelector } from './visibility-selector';
+// import { type VisibilityType, VisibilitySelector } from './visibility-selector';
 
 function PureChatHeader({
   chatId,
   selectedModelId,
-  selectedVisibilityType,
+  // selectedVisibilityType,
   isReadonly,
 }: {
   chatId: string;
   selectedModelId: string;
-  selectedVisibilityType: VisibilityType;
+  // selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
 }) {
   const router = useRouter();
@@ -32,7 +32,7 @@ function PureChatHeader({
 
   return (
     <header className="flex sticky top-0 bg-background py-1.5 items-center px-2 md:px-2 gap-2">
-      <SidebarToggle />
+      <SidebarTrigger />
 
       {(!open || windowWidth < 768) && (
         <Tooltip>
@@ -52,18 +52,7 @@ function PureChatHeader({
           <TooltipContent>New Chat</TooltipContent>
         </Tooltip>
       )}
-      <Button
-        className="bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-zinc-50 dark:text-zinc-900 hidden md:flex py-1.5 px-2 h-fit md:h-[34px] order-4 md:ml-auto"
-        asChild
-      >
-        <Link
-        href={'https://github.com/vercel/ai-chatbot'}
-          target="_noblank"
-        >
-          <Github size={16} />
-          visit Repository
-        </Link>
-      </Button>
+
     </header>
   );
 }
