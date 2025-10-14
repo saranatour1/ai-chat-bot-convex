@@ -7,6 +7,7 @@ import { components, internal } from '../_generated/api';
 import { action, internalAction, mutation, query } from '../_generated/server';
 import { z } from 'zod';
 import { Id } from '../_generated/dataModel';
+import { asyncMap } from 'convex-helpers'
 
 export const mainAgent = new Agent(components.agent, {
   languageModel: google.chat('gemini-2.5-flash'),
@@ -131,21 +132,19 @@ export const createTitleAndSummarizeChat = internalAction({
 
 export const streamMessageAsynchronously = mutation({
   args: {
-    prompt: v.string(), threadId: v.string(), fileId: v.optional(v.string()), body: v.optional(v.object({
+    prompt: v.string(), threadId: v.string(), fileIds: v.optional(v.string()), body: v.optional(v.object({
       model: v.string(),
       tools: v.array(v.string())
     }))
   },
-  handler: async (ctx, { prompt, threadId, fileId }) => {
+  handler: async (ctx, { prompt, threadId, fileIds }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
 
-    if (fileId) {
-      const { filePart, imagePart } = await getFile(
-        ctx,
-        components.agent,
-        fileId
-      )
+    if (fileIds && fileIds.length > 0) {
+      const { filePart, imagePart } = await getFile(ctx, components.agent, fileIds)
+
+
       const { messageId } = await mainAgent.saveMessage(ctx, {
         threadId,
         userId: userId,
@@ -153,7 +152,7 @@ export const streamMessageAsynchronously = mutation({
           role: "user",
           content: [imagePart ?? filePart, { type: "text", text: prompt }],
         },
-        metadata: { fileIds: fileId ? [fileId] : undefined },
+        metadata: { fileIds: fileIds ? [fileIds] : undefined },
         // we're in a mutation, so skip embeddings for now. They'll be generated
         // lazily when streaming text.
         skipEmbeddings: true,
@@ -171,7 +170,7 @@ export const streamMessageAsynchronously = mutation({
           role: "user",
           content: [{ type: "text", text: prompt }],
         },
-        metadata: { fileIds: fileId ? [fileId] : undefined },
+        metadata: { fileIds: fileIds ? [fileIds] : undefined },
         // we're in a mutation, so skip embeddings for now. They'll be generated
         // lazily when streaming text.
         skipEmbeddings: true,
@@ -244,9 +243,9 @@ export const uploadFile = action({
         sha256,
       },
     );
-    
+
     const { fileId, url, storageId } = file;
-    return {fileId, url, storageId}
+    return { fileId, url, storageId }
   },
 });
 

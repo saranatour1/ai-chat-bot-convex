@@ -4,7 +4,6 @@ import {
   PromptInputActionAddAttachments,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
   PromptInputActionMenuTrigger,
   PromptInputAttachment,
   PromptInputAttachments,
@@ -16,31 +15,28 @@ import {
   PromptInputModelSelectItem,
   PromptInputModelSelectTrigger,
   PromptInputModelSelectValue,
-  PromptInputProvider,
-  PromptInputSpeechButton,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputTools,
-  usePromptInputAttachments,
+  usePromptInputAttachments
 } from '@/components/ai-elements/prompt-input';
-import { Fragment, useCallback, useEffect, useState } from 'react';
-import { Conversation, ConversationContent, ConversationScrollButton } from './ai-elements/conversation';
-import { Action } from '@radix-ui/react-alert-dialog';
-import { RefreshCcwIcon, CopyIcon, Loader, GlobeIcon, ArrowUpWideNarrow } from 'lucide-react';
-import { Actions } from './ai-elements/actions';
-import { Message, MessageContent } from './ai-elements/message';
-import { Reasoning, ReasoningTrigger, ReasoningContent } from './ai-elements/reasoning';
-import { Sources, SourcesTrigger, SourcesContent, Source } from './ai-elements/sources';
-import { vStreamArgs, listUIMessages, syncStreams, } from "@convex-dev/agent";
-import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
 import { api } from '@/convex/_generated/api';
+import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
+import { Action } from '@radix-ui/react-alert-dialog';
 import { useAction, useMutation } from 'convex/react';
-import { Response } from './ai-elements/response';
-import { useLocalStorage } from 'usehooks-ts'
+import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
+import { Actions } from './ai-elements/actions';
+import { Conversation, ConversationContent, ConversationScrollButton } from './ai-elements/conversation';
+import { Message, MessageContent } from './ai-elements/message';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
+import { Response } from './ai-elements/response';
+import { Source, Sources, SourcesContent, SourcesTrigger } from './ai-elements/sources';
 import { ChatHeader } from './chat-header';
-import FileUIPart from 'ai';
+import { Id } from '@/convex/_generated/dataModel';
 
 const models = [
   {
@@ -56,6 +52,7 @@ const models = [
 
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [model, setModel] = useState<string>(models[0].value);
   const [webSearch, setWebSearch] = useState(false);
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
@@ -64,9 +61,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   );
   const router = useRouter()
 
-
   const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
-  const uploadFile = useAction(api.agent.index.uploadFile);
   const stopAction = useAction(api.agent.index.stopStreaming)
 
   // const { messages, sendMessage, status, regenerate } = useChat();
@@ -81,9 +76,6 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     threadId ? { threadId } : 'skip',
     { initialNumItems: 10, stream: true },
   );
-
-
-
 
   const handleSubmit = useCallback(async (message: PromptInputMessage) => {
     try {
@@ -101,19 +93,14 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       }
       router.push(`/chat/${chatId}`);
 
-      if(hasAttachments){
-        message.files?.forEach(async(msg) =>{
-          
-        })
-      }
-
       sendMessage({
         prompt: message.text || 'Sent with attachments',
         threadId: threadId,
+        // fileId
       },
       );
       setInput('');
-      // setAttachments([]);
+      setAttachments([]);
       setLocalStorageInput('');
       setInput('');
     } catch (e) {
@@ -215,11 +202,10 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       </Conversation>
 
 
-      <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop multiple>
+
+      <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop maxFiles={1} multiple={false}>
         <PromptInputBody>
-          <PromptInputAttachments>
-            {(attachment) => <PromptInputAttachment data={attachment}/>}
-          </PromptInputAttachments>
+          <TempChat attachments={attachments} setAttachments={setAttachments} />
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
@@ -261,6 +247,74 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
           <PromptInputSubmit disabled={!input && !status} />
         </PromptInputToolbar>
       </PromptInput>
+
+
     </div>
   </div>
+}
+
+type File = {
+  url: string;
+  fileId: string;
+};
+
+interface TempChatProps {
+  attachments: File[],
+  setAttachments: (f: File[]) => void;
+}
+
+const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
+  const { add, remove, clear, files, fileInputRef } = usePromptInputAttachments();
+  const uploadFile = useAction(api.agent.index.uploadFile);
+
+  
+  useEffect(()=>{
+    const handleUploadingFiles = async (e: any) => {
+      console.log("I've been called")
+      const target = e.target as HTMLInputElement;
+      const filesFromRef = Array.from(target.files || []);
+  
+      if (!filesFromRef.length) {
+        console.log("No files to upload");
+        return;
+      }
+  
+      try {
+        const uploadedFiles = await Promise.all(
+          filesFromRef.map(async (file) => {
+            const bytes = await file.arrayBuffer();
+  
+            const { fileId, url, storageId } = await uploadFile({
+              filename: file.name,
+              mimeType: file.type,
+              bytes: bytes,
+              // sha256:file.
+            })
+  
+            return {
+              fileId: fileId,
+              url: url,
+            };
+          })
+        );
+  
+        setAttachments(uploadedFiles)
+        console.log("Uploaded files:", uploadedFiles);
+        return uploadedFiles;
+      } catch (error) {
+        console.error("Error uploading files:", error);
+        throw error;
+      }
+    }
+    fileInputRef.current?.addEventListener('change', (e)=>{
+      handleUploadingFiles(e)
+    })
+
+    return fileInputRef.current?.removeEventListener('change', (e)=>{
+      handleUploadingFiles(e)
+    })
+  },[fileInputRef, attachments,setAttachments])
+  return <PromptInputAttachments>
+    {(attachment) => <PromptInputAttachment data={attachment} />}
+  </PromptInputAttachments>
 }
