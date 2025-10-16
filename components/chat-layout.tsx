@@ -22,7 +22,7 @@ import {
   usePromptInputAttachments
 } from '@/components/ai-elements/prompt-input';
 import { api } from '@/convex/_generated/api';
-import { optimisticallySendMessage, UIMessage, useUIMessages } from "@convex-dev/agent/react";
+import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
 import { Action } from '@radix-ui/react-alert-dialog';
 import { useAction, useMutation } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
@@ -36,10 +36,8 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/rea
 import { Response } from './ai-elements/response';
 import { Source, Sources, SourcesContent, SourcesTrigger } from './ai-elements/sources';
 import { ChatHeader } from './chat-header';
-import { Id } from '@/convex/_generated/dataModel';
-import { Image } from '@/components/ai-elements/image';
-import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from './ai-elements/tool';
-import { ToolUIPart, UIMessagePart } from 'ai';
+import { AlertDialog } from './ui/alert-dialog';
+import { Dialog } from '@radix-ui/react-dialog';
 
 const models = [
   {
@@ -122,7 +120,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   useEffect(() => {
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
-
+  
   return <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
     <div className="flex flex-col h-full">
       <ChatHeader chatId={threadId} isReadonly selectedModelId='' />
@@ -162,7 +160,8 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                             </Response>
                           </MessageContent>
                         </Message>
-                        {message.role === 'assistant' && i === messages.length - 1 && (
+                        <Dialog>
+                        {message && message.role === 'assistant' && i === messages.length - 1 ? (
                           <Actions className="mt-2">
                             <Action
                             // onClick={() => regenerate()}
@@ -179,7 +178,8 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                               <CopyIcon className="size-3" />
                             </Action>
                           </Actions>
-                        )}
+                        ):null}
+                        </Dialog>
                       </Fragment>
                     );
                   case 'reasoning':
