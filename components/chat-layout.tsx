@@ -24,6 +24,7 @@ import {
 import { api } from '@/convex/_generated/api';
 import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
 import { Action } from '@radix-ui/react-alert-dialog';
+import { Dialog } from '@radix-ui/react-dialog';
 import { useAction, useMutation } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -36,8 +37,6 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/rea
 import { Response } from './ai-elements/response';
 import { Source, Sources, SourcesContent, SourcesTrigger } from './ai-elements/sources';
 import { ChatHeader } from './chat-header';
-import { AlertDialog } from './ui/alert-dialog';
-import { Dialog } from '@radix-ui/react-dialog';
 
 const models = [
   {
@@ -49,7 +48,6 @@ const models = [
     value: 'deepseek/deepseek-r1',
   },
 ];
-
 
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
