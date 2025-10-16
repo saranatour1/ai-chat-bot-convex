@@ -10,7 +10,7 @@ import { Id } from '../_generated/dataModel';
 import { asyncMap } from 'convex-helpers'
 
 export const mainAgent = new Agent(components.agent, {
-  languageModel: google.chat('gemini-2.5-flash'),
+  languageModel: google.chat('gemini-2.0-flash-lite'),
   name: "Random Agent",
   instructions: "You are a helpful assistant.",
   storageOptions: {
@@ -18,11 +18,11 @@ export const mainAgent = new Agent(components.agent, {
   },
   maxSteps: 10,
   stopWhen: stepCountIs(30),
-  tools: [
-    google.tools.googleSearch({}),
-    google.tools.urlContext({}),
-    google.tools.codeExecution({})
-  ]
+  // tools: [
+  //   google.tools.googleSearch({}),
+  //   google.tools.urlContext({}),
+  //   google.tools.codeExecution({})
+  // ]
 });
 
 // list threads by userId
@@ -132,7 +132,7 @@ export const createTitleAndSummarizeChat = internalAction({
 
 export const streamMessageAsynchronously = mutation({
   args: {
-    prompt: v.string(), threadId: v.string(), fileIds: v.optional(v.string()), body: v.optional(v.object({
+    prompt: v.string(), threadId: v.optional(v.string()), fileIds: v.optional(v.string()), body: v.optional(v.object({
       model: v.string(),
       tools: v.array(v.string())
     }))
@@ -141,11 +141,23 @@ export const streamMessageAsynchronously = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("not authenticated")
 
+    let chatId: string | null = null;
+    if (!threadId) {
+      const lastUserThreadId = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+        userId: userId,
+        paginationOpts: {
+          cursor: null,
+          numItems: 1
+        }
+      });
+      chatId = lastUserThreadId?.page?.[0]._id;
+    }
+
     if (fileIds) {
       console.log("I've been called", fileIds)
       const { filePart, imagePart } = await getFile(ctx, components.agent, fileIds)
       const { messageId } = await mainAgent.saveMessage(ctx, {
-        threadId,
+        threadId: threadId ? threadId : chatId as string,
         userId: userId,
         message: {
           role: "user",
@@ -158,12 +170,12 @@ export const streamMessageAsynchronously = mutation({
       });
 
       await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
-        threadId,
+        threadId: threadId ? threadId : chatId as string,
         promptMessageId: messageId,
       });
     } else {
       const { messageId } = await mainAgent.saveMessage(ctx, {
-        threadId,
+        threadId: threadId ? threadId : chatId as string,
         userId: userId,
         message: {
           role: "user",
@@ -176,13 +188,13 @@ export const streamMessageAsynchronously = mutation({
       });
 
       await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
-        threadId,
+        threadId: threadId ? threadId : chatId as string,
         promptMessageId: messageId,
       });
     }
 
     await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
-      threadId: threadId
+      threadId: threadId ? threadId : chatId as string,
     })
   },
 });
