@@ -28,7 +28,7 @@ import { Dialog } from '@radix-ui/react-dialog';
 import { useAction, useMutation } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useState } from 'react';
+import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { Actions } from './ai-elements/actions';
 import { Conversation, ConversationContent, ConversationScrollButton } from './ai-elements/conversation';
@@ -75,8 +75,19 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     { initialNumItems: 10, stream: true },
   );
 
+  {/* type ChatStatus = 'submitted' | 'streaming' | 'ready' | 'error'; */ }
+  {/* "pending" | "success" | "failed" |"streaming" */ }
+  const runningMessageStatus = useMemo(() => {
+    const lastMessage = messages?.[messages.length - 1];
+
+    const status = lastMessage?.status === "pending" ? 'submitted' : lastMessage?.status === "failed" ? "error" : lastMessage?.status === "success" ? "ready" : lastMessage?.status === "streaming" ? "streaming" : 'submitted'
+    return status
+  }, [messages])
 
   const handleSubmit = useCallback(async (message: PromptInputMessage) => {
+    if (runningMessageStatus === "streaming") {
+      return void stopAction({ threadId })
+    }
     try {
       const hasText = Boolean(message.text);
       const hasAttachments = Boolean(message.files?.length);
@@ -84,7 +95,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       if (!(hasText || hasAttachments)) {
         return;
       }
-      const chatId =  threadId || await createEmptyThread();
+      const chatId = threadId || await createEmptyThread();
 
       if (!chatId) {
         console.error('Thread ID is undefined.');
@@ -118,7 +129,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   useEffect(() => {
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
-  
+
   return <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
     <div className="flex flex-col h-full">
       <ChatHeader chatId={threadId} isReadonly selectedModelId='' />
@@ -159,24 +170,24 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                           </MessageContent>
                         </Message>
                         <Dialog>
-                        {message && message.role === 'assistant' && i === messages.length - 1 ? (
-                          <Actions className="mt-2">
-                            <Action
-                            // onClick={() => regenerate()}
-                            // label="Retry"
-                            >
-                              <RefreshCcwIcon className="size-3" />
-                            </Action>
-                            <Action
-                              onClick={() =>
-                                navigator.clipboard.writeText(part.text)
-                              }
-                            // label="Copy"
-                            >
-                              <CopyIcon className="size-3" />
-                            </Action>
-                          </Actions>
-                        ):null}
+                          {message && message.role === 'assistant' && i === messages.length - 1 ? (
+                            <Actions className="mt-2">
+                              <Action
+                              // onClick={() => regenerate()}
+                              // label="Retry"
+                              >
+                                <RefreshCcwIcon className="size-3" />
+                              </Action>
+                              <Action
+                                onClick={() =>
+                                  navigator.clipboard.writeText(part.text)
+                                }
+                              // label="Copy"
+                              >
+                                <CopyIcon className="size-3" />
+                              </Action>
+                            </Actions>
+                          ) : null}
                         </Dialog>
                       </Fragment>
                     );
@@ -260,7 +271,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
           </PromptInputTools>
           {/* type ChatStatus = 'submitted' | 'streaming' | 'ready' | 'error'; */}
           {/* "pending" | "success" | "failed" |"streaming" */}
-          <PromptInputSubmit disabled={!input && !status} />
+          <PromptInputSubmit disabled={!input && !status} status={runningMessageStatus} />
         </PromptInputToolbar>
       </PromptInput>
     </div>
