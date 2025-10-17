@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { Agent, getFile, listUIMessages, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
+import { abortStream, Agent, getFile, listUIMessages, stepCountIs, storeFile, syncStreams, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
 import { ConvexError, v } from 'convex/values';
@@ -217,10 +217,10 @@ export const stopStreaming = action({
     // Not properly working
     const data = await ctx.runQuery(components.agent.streams.list, { threadId: args_0.threadId })
     if (data[0]) {
-      // console.log("I ran", data[0].streamId)
-      await ctx.runMutation(components.agent.streams.abort, {
-        streamId: data?.[0]?.streamId,
-        reason: "aborted"
+      await abortStream(ctx, components.agent, {
+        // threadId: args_0.threadId,
+        streamId: data[0].streamId,
+        reason: "stop"
       })
 
     } else {
