@@ -7,10 +7,9 @@ import { components, internal } from '../_generated/api';
 import { action, internalAction, mutation, query } from '../_generated/server';
 import { z } from 'zod';
 import { Id } from '../_generated/dataModel';
-import { asyncMap } from 'convex-helpers'
 
 export const mainAgent = new Agent(components.agent, {
-  languageModel: google.chat('gemini-2.0-flash-lite'),
+  languageModel: google.chat("gemini-2.5-flash-lite"),
   name: "Random Agent",
   instructions: "You are a helpful assistant.",
   storageOptions: {
@@ -18,11 +17,6 @@ export const mainAgent = new Agent(components.agent, {
   },
   maxSteps: 10,
   stopWhen: stepCountIs(30),
-  // tools: [
-  //   google.tools.googleSearch({}),
-  //   google.tools.urlContext({}),
-  //   google.tools.codeExecution({})
-  // ]
 });
 
 // list threads by userId

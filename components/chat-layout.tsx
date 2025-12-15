@@ -79,6 +79,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   {/* "pending" | "success" | "failed" |"streaming" */ }
   const runningMessageStatus = useMemo(() => {
     const lastMessage = messages?.[messages.length - 1];
+    if (!lastMessage) return undefined;
 
     const status = lastMessage?.status === "pending" ? 'submitted' : lastMessage?.status === "failed" ? "error" : lastMessage?.status === "success" ? "ready" : lastMessage?.status === "streaming" ? "streaming" : 'submitted'
     return status
