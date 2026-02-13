@@ -65,9 +65,11 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
 
   const sendMessage = useMutation(api.agent.index.streamMessageAsynchronously).withOptimisticUpdate((store, args) => {
     if (!args.threadId) return;
-    optimisticallySendMessage(api.agent.index.viewThreadMessagesById)
-  }
-  );
+    optimisticallySendMessage(api.agent.index.viewThreadMessagesById)(store, {
+      threadId: args.threadId,
+      prompt: args.prompt,
+    });
+  });
 
   const { results: messages, status, loadMore, isLoading } = useUIMessages(
     api.agent.index.viewThreadMessagesById,
@@ -108,7 +110,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       // console.log(attachments) // here its empty
       await sendMessage({
         prompt: message.text || 'Sent with attachments',
-        threadId: threadId,
+        threadId: chatId,
         fileIds: attachments[0] ? attachments[0].fileId : undefined
       });
 
@@ -121,9 +123,8 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   }, [threadId, attachments, sendMessage, setAttachments, setInput, setLocalStorageInput,])
 
   useEffect(() => {
-    if (input) {
-      const finalValue = input || localStorageInput || '';
-      setInput(finalValue);
+    if (!input && localStorageInput) {
+      setInput(localStorageInput);
     }
   }, []);
 
@@ -231,7 +232,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
 
       <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop maxFiles={1} multiple={false}>
         <PromptInputBody>
-          <TempChat attachments={attachments} setAttachments={setAttachments} />
+          <TempChat setAttachments={setAttachments} />
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
@@ -285,19 +286,21 @@ type File = {
 };
 
 interface TempChatProps {
-  attachments: File[],
   setAttachments: Dispatch<SetStateAction<File[]>>
 }
 
-const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
-  const { add, remove, clear, files, fileInputRef } = usePromptInputAttachments();
+const TempChat = ({ setAttachments }: TempChatProps) => {
+  const { fileInputRef } = usePromptInputAttachments();
   const uploadFile = useAction(api.agent.index.uploadFile);
 
 
   useEffect(() => {
-    const handleUploadingFiles = async (e: any) => {
+    const handleUploadingFiles = async (e: Event) => {
       // console.log("I've been called")
-      const target = e.target as HTMLInputElement;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
       const filesFromRef = Array.from(target.files || []);
 
       if (!filesFromRef.length) {
@@ -308,18 +311,41 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
       try {
         const uploadedFiles = await Promise.all(
           filesFromRef.map(async (file) => {
-            const bytes = await file.arrayBuffer();
+            const startUpload = await uploadFile({ phase: "start" } as any) as { uploadUrl?: string };
+            if (!startUpload?.uploadUrl) {
+              throw new Error("Failed to create upload URL");
+            }
 
-            const { fileId, url, storageId } = await uploadFile({
+            const uploadResponse = await fetch(startUpload.uploadUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": file.type || "application/octet-stream",
+              },
+              body: file,
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error(`Upload failed with status ${uploadResponse.status}`);
+            }
+
+            const { storageId } = await uploadResponse.json() as { storageId: string };
+            if (!storageId) {
+              throw new Error("Upload did not return a storageId");
+            }
+
+            const completeUpload = await uploadFile({
+              phase: "complete",
+              storageId,
               filename: file.name,
-              mimeType: file.type,
-              bytes: bytes,
-              // sha256:file.
-            })
+              mimeType: file.type || "application/octet-stream",
+            } as any) as { fileId?: string; url?: string };
+            if (!completeUpload.fileId || !completeUpload.url) {
+              throw new Error("File registration failed");
+            }
 
             return {
-              fileId: fileId,
-              url: url,
+              fileId: completeUpload.fileId,
+              url: completeUpload.url,
             };
           })
         );
@@ -332,13 +358,17 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
         throw error;
       }
     }
-    fileInputRef.current?.addEventListener('change', (e) => {
-      handleUploadingFiles(e)
-    })
+    const input = fileInputRef.current;
+    if (!input) return;
 
-    return fileInputRef.current?.removeEventListener('change', (e) => {
-      handleUploadingFiles(e)
-    })
+    const handleChange = (e: Event) => {
+      void handleUploadingFiles(e);
+    };
+    input.addEventListener('change', handleChange);
+
+    return () => {
+      input.removeEventListener('change', handleChange);
+    };
   }, [fileInputRef, setAttachments])
 
   return <PromptInputAttachments>
