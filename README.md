@@ -6,7 +6,7 @@ This project is a chatbot application template built with Next.js, designed to f
 
 - **Next.js** (App Router, React Server Components, Server Actions)
 - **React** (client-side interactivity)
-- **AI SDK** (unified API for LLMs, supports xAI, OpenAI, Fireworks, and more)
+- **AI SDK** (unified API for LLMs, configured for Google Gemini)
 - **Convex** (backend data persistence, agent framework, authentication)
 - **shadcn/ui** and **Radix UI** (UI components and accessibility)
 - **Tailwind CSS** (styling)

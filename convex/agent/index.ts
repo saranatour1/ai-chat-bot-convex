@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { abortStream, Agent, getFile, listUIMessages, stepCountIs, storeFile, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
+import { abortStream, Agent, getFile, listUIMessages, stepCountIs, ThreadDoc, vStreamArgs } from '@convex-dev/agent';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { customAction, customCtx, customMutation, customQuery } from 'convex-helpers/server/customFunctions';
 import { paginationOptsValidator, type PaginationResult } from 'convex/server';
@@ -8,11 +8,49 @@ import { components, internal } from '../_generated/api';
 import { action as rawAction, internalAction, mutation as rawMutation, query as rawQuery } from '../_generated/server';
 import { z } from 'zod';
 import { Id } from '../_generated/dataModel';
+const AGENT_MODEL = process.env.CONVEX_AGENT_MODEL ?? "gemini-2.5-flash";
+const TOOL_CALLS_PER_DAY_LIMIT = 3;
+const URL_IN_PROMPT_PATTERN = /https?:\/\/[^\s<>"')]+/i;
+const GOOGLE_TOOL_NAMES = ["google_search", "url_context"] as const;
+type GoogleToolName = (typeof GOOGLE_TOOL_NAMES)[number];
+const GOOGLE_TOOL_NAME_SET = new Set<string>(GOOGLE_TOOL_NAMES);
+
+const normalizeRequestedTools = (tools?: string[]) => {
+  const requestedTools = new Set<GoogleToolName>();
+  for (const tool of tools ?? []) {
+    if (GOOGLE_TOOL_NAME_SET.has(tool)) {
+      requestedTools.add(tool as GoogleToolName);
+    }
+  }
+  return requestedTools;
+};
+
+const buildGoogleTools = (requestedTools: ReadonlySet<GoogleToolName>) => {
+  const tools: {
+    google_search?: ReturnType<typeof google.tools.googleSearch>;
+    url_context?: ReturnType<typeof google.tools.urlContext>;
+  } = {};
+  if (requestedTools.has("google_search")) {
+    tools.google_search = google.tools.googleSearch({});
+  }
+  if (requestedTools.has("url_context")) {
+    tools.url_context = google.tools.urlContext({});
+  }
+  return tools;
+};
+
+const normalizeGoogleModelId = (model?: string) => {
+  if (!model) return undefined;
+  return model.startsWith("google/") ? model.slice("google/".length) : model;
+};
+
+const getUtcDayKey = (now: number) => new Date(now).toISOString().slice(0, 10);
 
 export const mainAgent = new Agent(components.agent, {
-  languageModel: google.chat("gemini-2.5-flash-lite") as any,
+  languageModel: google.chat(AGENT_MODEL),
   name: "Random Agent",
-  instructions: "You are a helpful assistant.",
+  instructions:
+    "You are a helpful assistant. Use Google Search for up-to-date information when needed. When a prompt includes URLs, use URL context before answering.",
   storageOptions: {
     saveMessages: 'all',
   },
@@ -120,6 +158,26 @@ export const createEmptyThread = authedMutation({
   },
 });
 
+export const getToolCallRateLimitStatus = authedQuery({
+  args: {},
+  handler: async (ctx) => {
+    const dayKey = getUtcDayKey(Date.now());
+    const usage = await ctx.db
+      .query("toolUsageDaily")
+      .withIndex("by_user_day", (q) =>
+        q.eq("userId", ctx.userId).eq("dayKey", dayKey),
+      )
+      .unique();
+    const used = usage?.count ?? 0;
+    return {
+      dayKey,
+      limit: TOOL_CALLS_PER_DAY_LIMIT,
+      used,
+      remaining: Math.max(0, TOOL_CALLS_PER_DAY_LIMIT - used),
+    };
+  },
+});
+
 
 // delete chat history
 export const deleteChatHistory = authedAction({
@@ -165,8 +223,12 @@ export const streamMessageAsynchronously = authedMutation({
       tools: v.array(v.string())
     }))
   },
-  handler: async (ctx, { prompt, threadId, fileIds }) => {
+  handler: async (ctx, { prompt, threadId, fileIds, body }) => {
     const { userId } = ctx;
+    const requestedTools = normalizeRequestedTools(body?.tools);
+    if (URL_IN_PROMPT_PATTERN.test(prompt)) {
+      requestedTools.add("url_context");
+    }
 
     let targetThreadId = threadId;
     if (targetThreadId) {
@@ -174,6 +236,33 @@ export const streamMessageAsynchronously = authedMutation({
     } else {
       const { threadId: newThreadId } = await mainAgent.createThread(ctx, { userId });
       targetThreadId = newThreadId;
+    }
+    if (requestedTools.size > 0) {
+      const now = Date.now();
+      const dayKey = getUtcDayKey(now);
+      const usage = await ctx.db
+        .query("toolUsageDaily")
+        .withIndex("by_user_day", (q) =>
+          q.eq("userId", userId).eq("dayKey", dayKey),
+        )
+        .unique();
+      const used = usage?.count ?? 0;
+      if (used >= TOOL_CALLS_PER_DAY_LIMIT) {
+        throw new ConvexError(
+          `tool call rate limit exceeded: ${TOOL_CALLS_PER_DAY_LIMIT} per day`,
+        );
+      }
+      if (usage) {
+        await ctx.db.patch(usage._id, { count: used + 1, updatedAt: now });
+      } else {
+        await ctx.db.insert("toolUsageDaily", {
+          userId,
+          dayKey,
+          count: 1,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
     }
 
     const message = fileIds
@@ -202,6 +291,8 @@ export const streamMessageAsynchronously = authedMutation({
     await ctx.scheduler.runAfter(0, internal.agent.index.streamMessage, {
       threadId: targetThreadId,
       promptMessageId: messageId,
+      model: body?.model,
+      tools: [...requestedTools],
     });
 
     await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
@@ -211,11 +302,30 @@ export const streamMessageAsynchronously = authedMutation({
 });
 
 export const streamMessage = internalAction({
-  args: { promptMessageId: v.string(), threadId: v.string() },
-  handler: async (ctx, { promptMessageId, threadId }) => {
+  args: {
+    promptMessageId: v.string(),
+    threadId: v.string(),
+    model: v.optional(v.string()),
+    tools: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { promptMessageId, threadId, model, tools }) => {
     const { thread } = await mainAgent.continueThread(ctx, { threadId });
+    const normalizedModel = normalizeGoogleModelId(model);
+    const requestedTools = normalizeRequestedTools(tools);
+    const googleTools = buildGoogleTools(requestedTools);
+    const hasGoogleTools = Object.keys(googleTools).length > 0;
+
     const result = await thread.streamText(
-      { promptMessageId },
+      {
+        promptMessageId,
+        ...(normalizedModel ? { model: google.chat(normalizedModel) } : {}),
+        ...(hasGoogleTools
+          ? {
+              tools: googleTools,
+              toolChoice: "auto" as const,
+            }
+          : {}),
+      },
       { saveStreamDeltas: true },
     );
     await result.consumeStream();
@@ -242,81 +352,150 @@ export const stopStreaming = authedAction({
   }
 })
 
-// validate file upload 
-// Step 1: Upload a file
+type UploadCtx = {
+  storage: {
+    generateUploadUrl: () => Promise<string>;
+    getMetadata: (
+      storageId: Id<"_storage">
+    ) => Promise<{ sha256?: string | null; contentType?: string | null } | null>;
+    getUrl: (storageId: Id<"_storage">) => Promise<string | null>;
+    delete: (storageId: Id<"_storage">) => Promise<void>;
+  };
+  runMutation: (ref: any, args: any) => Promise<any>;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForUploadedMetadata = async (
+  ctx: UploadCtx,
+  storageId: Id<"_storage">,
+  attempts = 10,
+  delayMs = 150,
+) => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const metadata = await ctx.storage.getMetadata(storageId);
+    if (metadata) {
+      return metadata;
+    }
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+  return null;
+};
+
+const completeUpload = async (
+  ctx: UploadCtx,
+  {
+    storageId,
+    filename,
+    mediaType,
+    mimeType,
+    sha256,
+  }: {
+    storageId: Id<"_storage">;
+    filename: string;
+    mediaType?: string;
+    mimeType?: string;
+    sha256?: string;
+  },
+) => {
+  const metadata = await waitForUploadedMetadata(ctx, storageId);
+  if (!metadata && !sha256) {
+    throw new ConvexError("Uploaded file metadata is not ready. Please retry.");
+  }
+
+  const hash = sha256 ?? metadata?.sha256;
+  if (!hash) throw new ConvexError("Unable to determine file hash");
+  if (sha256 && metadata?.sha256 && metadata.sha256 !== sha256) {
+    throw new ConvexError("File hash mismatch");
+  }
+
+  const reused = await ctx.runMutation(components.agent.files.useExistingFile, {
+    hash,
+    filename,
+  });
+
+  if (reused) {
+    if (reused.storageId !== storageId) {
+      await ctx.storage.delete(storageId);
+    }
+    const url = await ctx.storage.getUrl(reused.storageId as Id<"_storage">);
+    if (!url) throw new ConvexError("Stored file URL is unavailable");
+    return { fileId: reused.fileId, url, storageId: reused.storageId };
+  }
+
+  const { fileId, storageId: componentStorageId } = await ctx.runMutation(
+    components.agent.files.addFile,
+    {
+      storageId,
+      hash,
+      filename,
+      mimeType:
+        mediaType ??
+        mimeType ??
+        metadata?.contentType ??
+        "application/octet-stream",
+    },
+  );
+
+  const url = await ctx.storage.getUrl(componentStorageId as Id<"_storage">);
+  if (!url) throw new ConvexError("Stored file URL is unavailable");
+  return { fileId, url, storageId: componentStorageId };
+};
+
+export const startFileUpload = authedAction({
+  args: {},
+  handler: async (ctx) => {
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return { uploadUrl };
+  },
+});
+
+export const completeFileUpload = authedAction({
+  args: {
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    mediaType: v.optional(v.string()),
+    mimeType: v.optional(v.string()),
+    sha256: v.optional(v.string()),
+  },
+  handler: async (ctx, { storageId, filename, mediaType, mimeType, sha256 }) => {
+    return await completeUpload(ctx, {
+      storageId,
+      filename,
+      mediaType: mediaType ?? mimeType,
+      mimeType,
+      sha256,
+    });
+  },
+});
+
+// Backward-compatible wrapper for existing callers.
 export const uploadFile = authedAction({
   args: {
-    phase: v.optional(v.union(v.literal("start"), v.literal("complete"), v.literal("legacy"))),
+    phase: v.union(v.literal("start"), v.literal("complete")),
     filename: v.optional(v.string()),
+    mediaType: v.optional(v.string()),
     mimeType: v.optional(v.string()),
-    bytes: v.optional(v.bytes()),
     storageId: v.optional(v.id("_storage")),
     sha256: v.optional(v.string()),
   },
-  handler: async (ctx, { phase, filename, mimeType, bytes, storageId, sha256 }) => {
+  handler: async (ctx, { phase, filename, mediaType, mimeType, storageId, sha256 }) => {
     if (phase === "start") {
       const uploadUrl = await ctx.storage.generateUploadUrl();
       return { uploadUrl };
     }
 
-    if (phase === "complete") {
-      if (!storageId) throw new ConvexError("storageId is required");
-      if (!filename) throw new ConvexError("filename is required");
-
-      const metadata = await ctx.storage.getMetadata(storageId);
-      if (!metadata) throw new ConvexError("Uploaded file was not found");
-
-      const hash = sha256 ?? metadata.sha256;
-      if (!hash) throw new ConvexError("Unable to determine file hash");
-      if (sha256 && metadata.sha256 && metadata.sha256 !== sha256) {
-        throw new ConvexError("File hash mismatch");
-      }
-
-      const reused = await ctx.runMutation(components.agent.files.useExistingFile, {
-        hash,
-        filename,
-      });
-
-      if (reused) {
-        if (reused.storageId !== storageId) {
-          await ctx.storage.delete(storageId);
-        }
-        const url = await ctx.storage.getUrl(reused.storageId as Id<"_storage">);
-        if (!url) throw new ConvexError("Stored file URL is unavailable");
-        return { fileId: reused.fileId, url, storageId: reused.storageId };
-      }
-
-      const { fileId, storageId: componentStorageId } = await ctx.runMutation(
-        components.agent.files.addFile,
-        {
-          storageId,
-          hash,
-          filename,
-          mimeType: mimeType ?? metadata.contentType ?? "application/octet-stream",
-        },
-      );
-
-      const url = await ctx.storage.getUrl(componentStorageId as Id<"_storage">);
-      if (!url) throw new ConvexError("Stored file URL is unavailable");
-      return { fileId, url, storageId: componentStorageId };
-    }
-
-    // Backward-compatible path for any existing callers sending bytes directly.
-    if (!filename || !mimeType || !bytes) {
-      throw new ConvexError("Invalid upload arguments");
-    }
-    const { file } = await storeFile(
-      ctx,
-      components.agent,
-      new Blob([bytes], { type: mimeType }),
-      {
-        filename,
-        sha256,
-      },
-    );
-
-    const { fileId, url, storageId: uploadedStorageId } = file;
-    return { fileId, url, storageId: uploadedStorageId }
+    if (!storageId) throw new ConvexError("storageId is required");
+    if (!filename) throw new ConvexError("filename is required");
+    return await completeUpload(ctx, {
+      storageId,
+      filename,
+      mediaType: mediaType ?? mimeType,
+      mimeType,
+      sha256,
+    });
   },
 });
 

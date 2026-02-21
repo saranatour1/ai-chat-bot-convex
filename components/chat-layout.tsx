@@ -22,10 +22,11 @@ import {
   usePromptInputAttachments
 } from '@/components/ai-elements/prompt-input';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
 import { Action } from '@radix-ui/react-alert-dialog';
 import { Dialog } from '@radix-ui/react-dialog';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
@@ -40,14 +41,15 @@ import { ChatHeader } from './chat-header';
 
 const models = [
   {
-    name: 'GPT 4o',
-    value: 'openai/gpt-4o',
+    name: 'Gemini 2.5 Flash',
+    value: 'google/gemini-2.5-flash',
   },
   {
-    name: 'Deepseek R1',
-    value: 'deepseek/deepseek-r1',
+    name: 'Gemini 2.5 Pro',
+    value: 'google/gemini-2.5-pro',
   },
 ];
+const TOOL_CALLS_PER_DAY_LIMIT = 3;
 
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
@@ -59,6 +61,9 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     '',
   );
   const router = useRouter()
+  const toolRateLimit = useQuery(api.agent.index.getToolCallRateLimitStatus);
+  const remainingToolCalls = toolRateLimit?.remaining ?? TOOL_CALLS_PER_DAY_LIMIT;
+  const isSearchToolDisabled = remainingToolCalls <= 0;
 
   const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
   const stopAction = useAction(api.agent.index.stopStreaming)
@@ -108,10 +113,16 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       router.push(`/chat/${chatId}`);
 
       // console.log(attachments) // here its empty
+      const requestedTools =
+        webSearch && !isSearchToolDisabled ? ['google_search'] : [];
       await sendMessage({
         prompt: message.text || 'Sent with attachments',
         threadId: chatId,
-        fileIds: attachments[0] ? attachments[0].fileId : undefined
+        fileIds: attachments[0] ? attachments[0].fileId : undefined,
+        body: {
+          model,
+          tools: requestedTools,
+        },
       });
 
       setInput('');
@@ -120,7 +131,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     } catch (e) {
       console.error(e)
     }
-  }, [threadId, attachments, sendMessage, setAttachments, setInput, setLocalStorageInput,])
+  }, [threadId, attachments, model, webSearch, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput,])
 
   useEffect(() => {
     if (!input && localStorageInput) {
@@ -131,6 +142,12 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
   useEffect(() => {
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
+
+  useEffect(() => {
+    if (isSearchToolDisabled && webSearch) {
+      setWebSearch(false);
+    }
+  }, [isSearchToolDisabled, webSearch]);
 
   return <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
     <div className="flex flex-col h-full">
@@ -248,10 +265,11 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
             </PromptInputActionMenu>
             <PromptInputButton
               variant={webSearch ? 'default' : 'ghost'}
+              disabled={isSearchToolDisabled}
               onClick={() => setWebSearch(!webSearch)}
             >
               <GlobeIcon size={16} />
-              <span>Search</span>
+              <span>Search ({remainingToolCalls}/3)</span>
             </PromptInputButton>
             <PromptInputModelSelect
               onValueChange={(value) => {
@@ -291,7 +309,8 @@ interface TempChatProps {
 
 const TempChat = ({ setAttachments }: TempChatProps) => {
   const { fileInputRef } = usePromptInputAttachments();
-  const uploadFile = useAction(api.agent.index.uploadFile);
+  const startFileUpload = useAction(api.agent.index.startFileUpload);
+  const completeFileUpload = useAction(api.agent.index.completeFileUpload);
 
 
   useEffect(() => {
@@ -311,7 +330,7 @@ const TempChat = ({ setAttachments }: TempChatProps) => {
       try {
         const uploadedFiles = await Promise.all(
           filesFromRef.map(async (file) => {
-            const startUpload = await uploadFile({ phase: "start" } as any) as { uploadUrl?: string };
+            const startUpload = await startFileUpload({});
             if (!startUpload?.uploadUrl) {
               throw new Error("Failed to create upload URL");
             }
@@ -328,17 +347,17 @@ const TempChat = ({ setAttachments }: TempChatProps) => {
               throw new Error(`Upload failed with status ${uploadResponse.status}`);
             }
 
-            const { storageId } = await uploadResponse.json() as { storageId: string };
-            if (!storageId) {
+            const uploadPayload = await uploadResponse.json() as { storageId?: string };
+            if (!uploadPayload.storageId || typeof uploadPayload.storageId !== "string") {
               throw new Error("Upload did not return a storageId");
             }
+            const storageId = uploadPayload.storageId as Id<"_storage">;
 
-            const completeUpload = await uploadFile({
-              phase: "complete",
+            const completeUpload = await completeFileUpload({
               storageId,
               filename: file.name,
-              mimeType: file.type || "application/octet-stream",
-            } as any) as { fileId?: string; url?: string };
+              mediaType: file.type || "application/octet-stream",
+            });
             if (!completeUpload.fileId || !completeUpload.url) {
               throw new Error("File registration failed");
             }
