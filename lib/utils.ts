@@ -1,4 +1,4 @@
-import type { CoreAssistantMessage, CoreToolMessage, UIMessage } from 'ai';
+import type { AssistantModelMessage, ToolModelMessage, UIMessage } from 'ai';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ChatSDKError, type ErrorCode } from './errors';
@@ -55,7 +55,7 @@ export function generateUUID(): string {
   });
 }
 
-type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
+type ResponseMessageWithoutId = ToolModelMessage | AssistantModelMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
 export function getMostRecentUserMessage(messages: Array<UIMessage>) {

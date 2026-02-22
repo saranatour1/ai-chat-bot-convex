@@ -3,9 +3,18 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from 'ai';
-import { xai } from '@ai-sdk/xai';
+import { google } from '@ai-sdk/google';
 import { isTestEnvironment } from '../constants';
 
+const GEMINI_CHAT_MODEL = process.env.GEMINI_CHAT_MODEL ?? 'gemini-2.5-flash';
+const GEMINI_REASONING_MODEL =
+  process.env.GEMINI_REASONING_MODEL ?? 'gemini-2.5-pro';
+const GEMINI_TITLE_MODEL =
+  process.env.GEMINI_TITLE_MODEL ?? 'gemini-2.5-flash-lite';
+const GEMINI_ARTIFACT_MODEL =
+  process.env.GEMINI_ARTIFACT_MODEL ?? 'gemini-2.5-flash';
+const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.5-flash-image';
 
 export const myProvider = isTestEnvironment
   ? customProvider({
@@ -18,15 +27,15 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': xai('grok-2-vision-1212'),
+        'chat-model': google.chat(GEMINI_CHAT_MODEL),
         'chat-model-reasoning': wrapLanguageModel({
-          model: xai('grok-3-mini-beta'),
+          model: google.chat(GEMINI_REASONING_MODEL),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': xai('grok-2-1212'),
-        'artifact-model': xai('grok-2-1212'),
+        'title-model': google.chat(GEMINI_TITLE_MODEL),
+        'artifact-model': google.chat(GEMINI_ARTIFACT_MODEL),
       },
       imageModels: {
-        'small-model': xai.image('grok-2-image'),
+        'small-model': google.image(GEMINI_IMAGE_MODEL),
       },
     });

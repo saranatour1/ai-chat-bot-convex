@@ -22,10 +22,11 @@ import {
   usePromptInputAttachments
 } from '@/components/ai-elements/prompt-input';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
 import { Action } from '@radix-ui/react-alert-dialog';
 import { Dialog } from '@radix-ui/react-dialog';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
@@ -40,14 +41,15 @@ import { ChatHeader } from './chat-header';
 
 const models = [
   {
-    name: 'GPT 4o',
-    value: 'openai/gpt-4o',
+    name: 'Gemini 2.5 Flash',
+    value: 'google/gemini-2.5-flash',
   },
   {
-    name: 'Deepseek R1',
-    value: 'deepseek/deepseek-r1',
+    name: 'Gemini 2.5 Pro',
+    value: 'google/gemini-2.5-pro',
   },
 ];
+const TOOL_CALLS_PER_DAY_LIMIT = 3;
 
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
@@ -59,15 +61,20 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     '',
   );
   const router = useRouter()
+  const toolRateLimit = useQuery(api.agent.index.getToolCallRateLimitStatus);
+  const remainingToolCalls = toolRateLimit?.remaining ?? TOOL_CALLS_PER_DAY_LIMIT;
+  const isSearchToolDisabled = remainingToolCalls <= 0;
 
   const createEmptyThread = useMutation(api.agent.index.createEmptyThread)
   const stopAction = useAction(api.agent.index.stopStreaming)
 
   const sendMessage = useMutation(api.agent.index.streamMessageAsynchronously).withOptimisticUpdate((store, args) => {
     if (!args.threadId) return;
-    optimisticallySendMessage(api.agent.index.viewThreadMessagesById)
-  }
-  );
+    optimisticallySendMessage(api.agent.index.viewThreadMessagesById)(store, {
+      threadId: args.threadId,
+      prompt: args.prompt,
+    });
+  });
 
   const { results: messages, status, loadMore, isLoading } = useUIMessages(
     api.agent.index.viewThreadMessagesById,
@@ -106,10 +113,16 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       router.push(`/chat/${chatId}`);
 
       // console.log(attachments) // here its empty
+      const requestedTools =
+        webSearch && !isSearchToolDisabled ? ['google_search'] : [];
       await sendMessage({
         prompt: message.text || 'Sent with attachments',
-        threadId: threadId,
-        fileIds: attachments[0] ? attachments[0].fileId : undefined
+        threadId: chatId,
+        fileIds: attachments[0] ? attachments[0].fileId : undefined,
+        body: {
+          model,
+          tools: requestedTools,
+        },
       });
 
       setInput('');
@@ -118,18 +131,23 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     } catch (e) {
       console.error(e)
     }
-  }, [threadId, attachments, sendMessage, setAttachments, setInput, setLocalStorageInput,])
+  }, [threadId, attachments, model, webSearch, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput,])
 
   useEffect(() => {
-    if (input) {
-      const finalValue = input || localStorageInput || '';
-      setInput(finalValue);
+    if (!input && localStorageInput) {
+      setInput(localStorageInput);
     }
   }, []);
 
   useEffect(() => {
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
+
+  useEffect(() => {
+    if (isSearchToolDisabled && webSearch) {
+      setWebSearch(false);
+    }
+  }, [isSearchToolDisabled, webSearch]);
 
   return <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
     <div className="flex flex-col h-full">
@@ -231,7 +249,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
 
       <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop maxFiles={1} multiple={false}>
         <PromptInputBody>
-          <TempChat attachments={attachments} setAttachments={setAttachments} />
+          <TempChat setAttachments={setAttachments} />
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
@@ -247,10 +265,11 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
             </PromptInputActionMenu>
             <PromptInputButton
               variant={webSearch ? 'default' : 'ghost'}
+              disabled={isSearchToolDisabled}
               onClick={() => setWebSearch(!webSearch)}
             >
               <GlobeIcon size={16} />
-              <span>Search</span>
+              <span>Search ({remainingToolCalls}/3)</span>
             </PromptInputButton>
             <PromptInputModelSelect
               onValueChange={(value) => {
@@ -285,19 +304,22 @@ type File = {
 };
 
 interface TempChatProps {
-  attachments: File[],
   setAttachments: Dispatch<SetStateAction<File[]>>
 }
 
-const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
-  const { add, remove, clear, files, fileInputRef } = usePromptInputAttachments();
-  const uploadFile = useAction(api.agent.index.uploadFile);
+const TempChat = ({ setAttachments }: TempChatProps) => {
+  const { fileInputRef } = usePromptInputAttachments();
+  const startFileUpload = useAction(api.agent.index.startFileUpload);
+  const completeFileUpload = useAction(api.agent.index.completeFileUpload);
 
 
   useEffect(() => {
-    const handleUploadingFiles = async (e: any) => {
+    const handleUploadingFiles = async (e: Event) => {
       // console.log("I've been called")
-      const target = e.target as HTMLInputElement;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
       const filesFromRef = Array.from(target.files || []);
 
       if (!filesFromRef.length) {
@@ -308,18 +330,41 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
       try {
         const uploadedFiles = await Promise.all(
           filesFromRef.map(async (file) => {
-            const bytes = await file.arrayBuffer();
+            const startUpload = await startFileUpload({});
+            if (!startUpload?.uploadUrl) {
+              throw new Error("Failed to create upload URL");
+            }
 
-            const { fileId, url, storageId } = await uploadFile({
+            const uploadResponse = await fetch(startUpload.uploadUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": file.type || "application/octet-stream",
+              },
+              body: file,
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error(`Upload failed with status ${uploadResponse.status}`);
+            }
+
+            const uploadPayload = await uploadResponse.json() as { storageId?: string };
+            if (!uploadPayload.storageId || typeof uploadPayload.storageId !== "string") {
+              throw new Error("Upload did not return a storageId");
+            }
+            const storageId = uploadPayload.storageId as Id<"_storage">;
+
+            const completeUpload = await completeFileUpload({
+              storageId,
               filename: file.name,
-              mimeType: file.type,
-              bytes: bytes,
-              // sha256:file.
-            })
+              mediaType: file.type || "application/octet-stream",
+            });
+            if (!completeUpload.fileId || !completeUpload.url) {
+              throw new Error("File registration failed");
+            }
 
             return {
-              fileId: fileId,
-              url: url,
+              fileId: completeUpload.fileId,
+              url: completeUpload.url,
             };
           })
         );
@@ -332,13 +377,17 @@ const TempChat = ({ attachments, setAttachments }: TempChatProps) => {
         throw error;
       }
     }
-    fileInputRef.current?.addEventListener('change', (e) => {
-      handleUploadingFiles(e)
-    })
+    const input = fileInputRef.current;
+    if (!input) return;
 
-    return fileInputRef.current?.removeEventListener('change', (e) => {
-      handleUploadingFiles(e)
-    })
+    const handleChange = (e: Event) => {
+      void handleUploadingFiles(e);
+    };
+    input.addEventListener('change', handleChange);
+
+    return () => {
+      input.removeEventListener('change', handleChange);
+    };
   }, [fileInputRef, setAttachments])
 
   return <PromptInputAttachments>
