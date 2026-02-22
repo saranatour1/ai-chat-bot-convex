@@ -1,13 +1,18 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: __dirname,
+  },
   experimental: {
     ppr: false,
   },
   images: {
     remotePatterns: [
-      {hostname: 'https://avatars.githubusercontent.com',
-                pathname: '/u/**',
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+        pathname: '/u/**',
       }
     ],
   },

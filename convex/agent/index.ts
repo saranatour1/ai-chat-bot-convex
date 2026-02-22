@@ -7,13 +7,68 @@ import { ConvexError, v } from 'convex/values';
 import { components, internal } from '../_generated/api';
 import { action as rawAction, internalAction, mutation as rawMutation, query as rawQuery } from '../_generated/server';
 import { z } from 'zod';
-import { Id } from '../_generated/dataModel';
+import {
+  checkRateLimit,
+  rateLimit,
+  THREAD_CREATIONS_PER_DAY_LIMIT,
+  TOOL_CALLS_PER_DAY_LIMIT,
+} from './rateLimits';
 const AGENT_MODEL = process.env.CONVEX_AGENT_MODEL ?? "gemini-2.5-flash";
-const TOOL_CALLS_PER_DAY_LIMIT = 3;
 const URL_IN_PROMPT_PATTERN = /https?:\/\/[^\s<>"')]+/i;
 const GOOGLE_TOOL_NAMES = ["google_search", "url_context"] as const;
+const GOOGLE_SEARCH_MODE_VALUES = ["MODE_DYNAMIC", "MODE_UNSPECIFIED"] as const;
 type GoogleToolName = (typeof GOOGLE_TOOL_NAMES)[number];
+type GoogleSearchMode = (typeof GOOGLE_SEARCH_MODE_VALUES)[number];
+type GoogleSearchToolInput = {
+  enabled?: boolean;
+  mode?: GoogleSearchMode;
+  dynamicThreshold?: number;
+};
+type UrlContextToolInput = {
+  enabled?: boolean;
+};
+type ToolInputsPayload = {
+  google_search?: GoogleSearchToolInput;
+  url_context?: UrlContextToolInput;
+};
+type ResolvedToolConfig = {
+  google_search: {
+    enabled: boolean;
+    mode?: GoogleSearchMode;
+    dynamicThreshold?: number;
+  };
+  url_context: {
+    enabled: boolean;
+  };
+};
 const GOOGLE_TOOL_NAME_SET = new Set<string>(GOOGLE_TOOL_NAMES);
+
+const vGoogleSearchMode = v.union(
+  v.literal("MODE_DYNAMIC"),
+  v.literal("MODE_UNSPECIFIED"),
+);
+const vGoogleSearchToolInput = v.object({
+  enabled: v.optional(v.boolean()),
+  mode: v.optional(vGoogleSearchMode),
+  dynamicThreshold: v.optional(v.number()),
+});
+const vUrlContextToolInput = v.object({
+  enabled: v.optional(v.boolean()),
+});
+const vToolInputsPayload = v.object({
+  google_search: v.optional(vGoogleSearchToolInput),
+  url_context: v.optional(vUrlContextToolInput),
+});
+const vResolvedToolConfig = v.object({
+  google_search: v.object({
+    enabled: v.boolean(),
+    mode: v.optional(vGoogleSearchMode),
+    dynamicThreshold: v.optional(v.number()),
+  }),
+  url_context: v.object({
+    enabled: v.boolean(),
+  }),
+});
 
 const normalizeRequestedTools = (tools?: string[]) => {
   const requestedTools = new Set<GoogleToolName>();
@@ -25,15 +80,75 @@ const normalizeRequestedTools = (tools?: string[]) => {
   return requestedTools;
 };
 
-const buildGoogleTools = (requestedTools: ReadonlySet<GoogleToolName>) => {
+const normalizeToolInputs = ({
+  legacyTools,
+  prompt,
+  toolInputs,
+}: {
+  legacyTools?: string[];
+  prompt: string;
+  toolInputs?: ToolInputsPayload;
+}): ResolvedToolConfig => {
+  const requestedTools = normalizeRequestedTools(legacyTools);
+  const googleSearchInput = toolInputs?.google_search;
+  const urlContextInput = toolInputs?.url_context;
+
+  let googleSearchEnabled = requestedTools.has("google_search");
+  if (googleSearchInput?.enabled !== undefined) {
+    googleSearchEnabled = googleSearchInput.enabled;
+  }
+
+  let urlContextEnabled = requestedTools.has("url_context");
+  if (urlContextInput?.enabled !== undefined) {
+    urlContextEnabled = urlContextInput.enabled;
+  }
+  if (urlContextInput?.enabled !== false && URL_IN_PROMPT_PATTERN.test(prompt)) {
+    urlContextEnabled = true;
+  }
+
+  return {
+    google_search: {
+      enabled: googleSearchEnabled,
+      mode: googleSearchInput?.mode,
+      dynamicThreshold: googleSearchInput?.dynamicThreshold,
+    },
+    url_context: {
+      enabled: urlContextEnabled,
+    },
+  };
+};
+
+const assertValidToolInputs = (toolInputs?: ToolInputsPayload) => {
+  const dynamicThreshold = toolInputs?.google_search?.dynamicThreshold;
+  if (dynamicThreshold === undefined) {
+    return;
+  }
+  if (dynamicThreshold < 0 || dynamicThreshold > 1) {
+    throw new ConvexError(
+      "google_search.dynamicThreshold must be between 0 and 1",
+    );
+  }
+};
+
+const hasEnabledGoogleTools = (toolConfig: ResolvedToolConfig) =>
+  toolConfig.google_search.enabled || toolConfig.url_context.enabled;
+
+const buildGoogleToolsFromConfig = (toolConfig: ResolvedToolConfig) => {
   const tools: {
     google_search?: ReturnType<typeof google.tools.googleSearch>;
     url_context?: ReturnType<typeof google.tools.urlContext>;
   } = {};
-  if (requestedTools.has("google_search")) {
-    tools.google_search = google.tools.googleSearch({});
+  if (toolConfig.google_search.enabled) {
+    const searchOptions: Parameters<typeof google.tools.googleSearch>[0] = {};
+    if (toolConfig.google_search.mode) {
+      searchOptions.mode = toolConfig.google_search.mode;
+    }
+    if (toolConfig.google_search.dynamicThreshold !== undefined) {
+      searchOptions.dynamicThreshold = toolConfig.google_search.dynamicThreshold;
+    }
+    tools.google_search = google.tools.googleSearch(searchOptions);
   }
-  if (requestedTools.has("url_context")) {
+  if (toolConfig.url_context.enabled) {
     tools.url_context = google.tools.urlContext({});
   }
   return tools;
@@ -44,8 +159,10 @@ const normalizeGoogleModelId = (model?: string) => {
   return model.startsWith("google/") ? model.slice("google/".length) : model;
 };
 
-const getUtcDayKey = (now: number) => new Date(now).toISOString().slice(0, 10);
-
+const defaultTools = {
+  google_search: google.tools.googleSearch({}),
+  url_context: google.tools.urlContext({}),
+};
 export const mainAgent = new Agent(components.agent, {
   languageModel: google.chat(AGENT_MODEL),
   name: "Random Agent",
@@ -56,6 +173,7 @@ export const mainAgent = new Agent(components.agent, {
   },
   maxSteps: 10,
   stopWhen: stepCountIs(30),
+  tools: defaultTools,
 });
 
 const requireUserId = async (ctx: Parameters<typeof getAuthUserId>[0]) => {
@@ -79,6 +197,36 @@ const getOwnedThreadOrThrow = async (
     throw new ConvexError('not authorized');
   }
   return thread;
+};
+
+const consumeToolRateLimitOrThrow = async (
+  ctx: { db: Parameters<typeof rateLimit>[0]["db"] },
+  userId: string,
+) => {
+  const result = await rateLimit(ctx, {
+    name: "toolCallsPerDay",
+    key: userId,
+  });
+  if (!result.ok) {
+    throw new ConvexError(
+      `tool call rate limit exceeded: ${TOOL_CALLS_PER_DAY_LIMIT} per day`,
+    );
+  }
+};
+
+const consumeThreadCreationRateLimitOrThrow = async (
+  ctx: { db: Parameters<typeof rateLimit>[0]["db"] },
+  userId: string,
+) => {
+  const result = await rateLimit(ctx, {
+    name: "threadCreationsPerDay",
+    key: userId,
+  });
+  if (!result.ok) {
+    throw new ConvexError(
+      `thread creation rate limit exceeded: ${THREAD_CREATIONS_PER_DAY_LIMIT} per day`,
+    );
+  }
 };
 
 export const authedQuery = customQuery(
@@ -153,6 +301,7 @@ export const viewThreadMessagesById = authedQuery({
 
 export const createEmptyThread = authedMutation({
   handler: async (ctx) => {
+    await consumeThreadCreationRateLimitOrThrow(ctx, ctx.userId);
     const { threadId } = await mainAgent.createThread(ctx, { userId: ctx.userId });
     return threadId;
   },
@@ -161,19 +310,20 @@ export const createEmptyThread = authedMutation({
 export const getToolCallRateLimitStatus = authedQuery({
   args: {},
   handler: async (ctx) => {
-    const dayKey = getUtcDayKey(Date.now());
-    const usage = await ctx.db
-      .query("toolUsageDaily")
-      .withIndex("by_user_day", (q) =>
-        q.eq("userId", ctx.userId).eq("dayKey", dayKey),
-      )
-      .unique();
-    const used = usage?.count ?? 0;
+    const status = await checkRateLimit(ctx, {
+      name: "toolCallsPerDay",
+      key: ctx.userId,
+      count: 0,
+    });
+    const remaining = status.ok
+      ? Math.max(0, Math.floor(status.value))
+      : 0;
+    const used = Math.max(0, TOOL_CALLS_PER_DAY_LIMIT - remaining);
     return {
-      dayKey,
       limit: TOOL_CALLS_PER_DAY_LIMIT,
       used,
-      remaining: Math.max(0, TOOL_CALLS_PER_DAY_LIMIT - used),
+      remaining,
+      retryAt: status.retryAt,
     };
   },
 });
@@ -218,51 +368,36 @@ export const createTitleAndSummarizeChat = internalAction({
 
 export const streamMessageAsynchronously = authedMutation({
   args: {
-    prompt: v.string(), threadId: v.optional(v.string()), fileIds: v.optional(v.string()), body: v.optional(v.object({
-      model: v.string(),
-      tools: v.array(v.string())
-    }))
+    prompt: v.string(),
+    threadId: v.optional(v.string()),
+    fileIds: v.optional(v.string()),
+    body: v.optional(
+      v.object({
+        model: v.string(),
+        tools: v.optional(v.array(v.string())),
+        toolInputs: v.optional(vToolInputsPayload),
+      }),
+    ),
   },
   handler: async (ctx, { prompt, threadId, fileIds, body }) => {
     const { userId } = ctx;
-    const requestedTools = normalizeRequestedTools(body?.tools);
-    if (URL_IN_PROMPT_PATTERN.test(prompt)) {
-      requestedTools.add("url_context");
-    }
+    assertValidToolInputs(body?.toolInputs);
+    const resolvedToolConfig = normalizeToolInputs({
+      legacyTools: body?.tools,
+      prompt,
+      toolInputs: body?.toolInputs,
+    });
 
     let targetThreadId = threadId;
     if (targetThreadId) {
       await getOwnedThreadOrThrow(ctx, userId, targetThreadId);
     } else {
+      await consumeThreadCreationRateLimitOrThrow(ctx, userId);
       const { threadId: newThreadId } = await mainAgent.createThread(ctx, { userId });
       targetThreadId = newThreadId;
     }
-    if (requestedTools.size > 0) {
-      const now = Date.now();
-      const dayKey = getUtcDayKey(now);
-      const usage = await ctx.db
-        .query("toolUsageDaily")
-        .withIndex("by_user_day", (q) =>
-          q.eq("userId", userId).eq("dayKey", dayKey),
-        )
-        .unique();
-      const used = usage?.count ?? 0;
-      if (used >= TOOL_CALLS_PER_DAY_LIMIT) {
-        throw new ConvexError(
-          `tool call rate limit exceeded: ${TOOL_CALLS_PER_DAY_LIMIT} per day`,
-        );
-      }
-      if (usage) {
-        await ctx.db.patch(usage._id, { count: used + 1, updatedAt: now });
-      } else {
-        await ctx.db.insert("toolUsageDaily", {
-          userId,
-          dayKey,
-          count: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
+    if (hasEnabledGoogleTools(resolvedToolConfig)) {
+      await consumeToolRateLimitOrThrow(ctx, userId);
     }
 
     const message = fileIds
@@ -292,7 +427,8 @@ export const streamMessageAsynchronously = authedMutation({
       threadId: targetThreadId,
       promptMessageId: messageId,
       model: body?.model,
-      tools: [...requestedTools],
+      tools: body?.tools,
+      toolConfig: resolvedToolConfig,
     });
 
     await ctx.scheduler.runAfter(7, internal.agent.index.createTitleAndSummarizeChat, {
@@ -307,21 +443,27 @@ export const streamMessage = internalAction({
     threadId: v.string(),
     model: v.optional(v.string()),
     tools: v.optional(v.array(v.string())),
+    toolConfig: v.optional(vResolvedToolConfig),
   },
-  handler: async (ctx, { promptMessageId, threadId, model, tools }) => {
+  handler: async (ctx, { promptMessageId, threadId, model, tools, toolConfig }) => {
     const { thread } = await mainAgent.continueThread(ctx, { threadId });
     const normalizedModel = normalizeGoogleModelId(model);
-    const requestedTools = normalizeRequestedTools(tools);
-    const googleTools = buildGoogleTools(requestedTools);
+    const resolvedToolConfig =
+      toolConfig ??
+      normalizeToolInputs({
+        legacyTools: tools,
+        prompt: "",
+      });
+    const googleTools = buildGoogleToolsFromConfig(resolvedToolConfig);
     const hasGoogleTools = Object.keys(googleTools).length > 0;
 
     const result = await thread.streamText(
       {
         promptMessageId,
         ...(normalizedModel ? { model: google.chat(normalizedModel) } : {}),
+        tools: googleTools,
         ...(hasGoogleTools
           ? {
-              tools: googleTools,
               toolChoice: "auto" as const,
             }
           : {}),
@@ -352,156 +494,9 @@ export const stopStreaming = authedAction({
   }
 })
 
-type UploadCtx = {
-  storage: {
-    generateUploadUrl: () => Promise<string>;
-    getMetadata: (
-      storageId: Id<"_storage">
-    ) => Promise<{ sha256?: string | null; contentType?: string | null } | null>;
-    getUrl: (storageId: Id<"_storage">) => Promise<string | null>;
-    delete: (storageId: Id<"_storage">) => Promise<void>;
-  };
-  runMutation: (ref: any, args: any) => Promise<any>;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const waitForUploadedMetadata = async (
-  ctx: UploadCtx,
-  storageId: Id<"_storage">,
-  attempts = 10,
-  delayMs = 150,
-) => {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const metadata = await ctx.storage.getMetadata(storageId);
-    if (metadata) {
-      return metadata;
-    }
-    if (attempt < attempts - 1) {
-      await sleep(delayMs);
-    }
-  }
-  return null;
-};
-
-const completeUpload = async (
-  ctx: UploadCtx,
-  {
-    storageId,
-    filename,
-    mediaType,
-    mimeType,
-    sha256,
-  }: {
-    storageId: Id<"_storage">;
-    filename: string;
-    mediaType?: string;
-    mimeType?: string;
-    sha256?: string;
-  },
-) => {
-  const metadata = await waitForUploadedMetadata(ctx, storageId);
-  if (!metadata && !sha256) {
-    throw new ConvexError("Uploaded file metadata is not ready. Please retry.");
-  }
-
-  const hash = sha256 ?? metadata?.sha256;
-  if (!hash) throw new ConvexError("Unable to determine file hash");
-  if (sha256 && metadata?.sha256 && metadata.sha256 !== sha256) {
-    throw new ConvexError("File hash mismatch");
-  }
-
-  const reused = await ctx.runMutation(components.agent.files.useExistingFile, {
-    hash,
-    filename,
-  });
-
-  if (reused) {
-    if (reused.storageId !== storageId) {
-      await ctx.storage.delete(storageId);
-    }
-    const url = await ctx.storage.getUrl(reused.storageId as Id<"_storage">);
-    if (!url) throw new ConvexError("Stored file URL is unavailable");
-    return { fileId: reused.fileId, url, storageId: reused.storageId };
-  }
-
-  const { fileId, storageId: componentStorageId } = await ctx.runMutation(
-    components.agent.files.addFile,
-    {
-      storageId,
-      hash,
-      filename,
-      mimeType:
-        mediaType ??
-        mimeType ??
-        metadata?.contentType ??
-        "application/octet-stream",
-    },
-  );
-
-  const url = await ctx.storage.getUrl(componentStorageId as Id<"_storage">);
-  if (!url) throw new ConvexError("Stored file URL is unavailable");
-  return { fileId, url, storageId: componentStorageId };
-};
-
-export const startFileUpload = authedAction({
-  args: {},
-  handler: async (ctx) => {
-    const uploadUrl = await ctx.storage.generateUploadUrl();
-    return { uploadUrl };
-  },
-});
-
-export const completeFileUpload = authedAction({
-  args: {
-    storageId: v.id("_storage"),
-    filename: v.string(),
-    mediaType: v.optional(v.string()),
-    mimeType: v.optional(v.string()),
-    sha256: v.optional(v.string()),
-  },
-  handler: async (ctx, { storageId, filename, mediaType, mimeType, sha256 }) => {
-    return await completeUpload(ctx, {
-      storageId,
-      filename,
-      mediaType: mediaType ?? mimeType,
-      mimeType,
-      sha256,
-    });
-  },
-});
-
-// Backward-compatible wrapper for existing callers.
-export const uploadFile = authedAction({
-  args: {
-    phase: v.union(v.literal("start"), v.literal("complete")),
-    filename: v.optional(v.string()),
-    mediaType: v.optional(v.string()),
-    mimeType: v.optional(v.string()),
-    storageId: v.optional(v.id("_storage")),
-    sha256: v.optional(v.string()),
-  },
-  handler: async (ctx, { phase, filename, mediaType, mimeType, storageId, sha256 }) => {
-    if (phase === "start") {
-      const uploadUrl = await ctx.storage.generateUploadUrl();
-      return { uploadUrl };
-    }
-
-    if (!storageId) throw new ConvexError("storageId is required");
-    if (!filename) throw new ConvexError("filename is required");
-    return await completeUpload(ctx, {
-      storageId,
-      filename,
-      mediaType: mediaType ?? mimeType,
-      mimeType,
-      sha256,
-    });
-  },
-});
-
-export const popFile = authedAction({
-  args: { fileId: v.string() },
-  handler: async (ctx, args_0) => {
-    await ctx.storage.delete(args_0.fileId as Id<"_storage">)
-  },
-})
+export {
+  completeFileUpload,
+  popFile,
+  startFileUpload,
+  uploadFile,
+} from './files';

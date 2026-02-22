@@ -24,20 +24,20 @@ import {
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
-import { Action } from '@radix-ui/react-alert-dialog';
-import { Dialog } from '@radix-ui/react-dialog';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { CopyIcon, GlobeIcon, Loader, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Dispatch, Fragment, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
-import { Actions } from './ai-elements/actions';
+import { Action, Actions } from './ai-elements/actions';
 import { Conversation, ConversationContent, ConversationScrollButton } from './ai-elements/conversation';
 import { Message, MessageContent } from './ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
 import { Response } from './ai-elements/response';
 import { Source, Sources, SourcesContent, SourcesTrigger } from './ai-elements/sources';
 import { ChatHeader } from './chat-header';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const models = [
   {
@@ -50,12 +50,129 @@ const models = [
   },
 ];
 const TOOL_CALLS_PER_DAY_LIMIT = 3;
+type GoogleSearchMode = 'MODE_DYNAMIC' | 'MODE_UNSPECIFIED';
+type UrlContextPreference = 'auto' | 'off' | 'on';
+type ToolInputsPayload = {
+  google_search?: {
+    enabled?: boolean;
+    mode?: GoogleSearchMode;
+    dynamicThreshold?: number;
+  };
+  url_context?: {
+    enabled?: boolean;
+  };
+};
+
+const normalizeDynamicThreshold = (rawValue: string) => {
+  const parsed = Number.parseFloat(rawValue);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  return Math.min(1, Math.max(0, parsed));
+};
+
+type SourcePart = {
+  type: string;
+};
+
+type SourceUrlPart = SourcePart & {
+  type: 'source-url';
+  sourceId?: string;
+  title?: string;
+  url: string;
+};
+
+type SourceDocumentPart = SourcePart & {
+  filename?: string;
+  mediaType?: string;
+  sourceId?: string;
+  title?: string;
+  type: 'source-document';
+};
+
+type NormalizedSource = {
+  href?: string;
+  key: string;
+  kind: 'document' | 'url';
+  sourceId?: string;
+  subtitle: string;
+  title: string;
+};
+
+const isSourceUrlPart = (part: SourcePart): part is SourceUrlPart =>
+  part.type === 'source-url';
+
+const isSourceDocumentPart = (part: SourcePart): part is SourceDocumentPart =>
+  part.type === 'source-document';
+
+const getHostnameFromUrl = (value: string) => {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return undefined;
+  }
+};
+
+const buildSourceDedupeKey = (sourceId: string | undefined, fallback: string) => {
+  const normalizedSourceId = sourceId?.trim();
+  if (normalizedSourceId) {
+    return `source-id:${normalizedSourceId}`;
+  }
+  return `fallback:${fallback}`;
+};
+
+const normalizeMessageSources = (parts: ReadonlyArray<SourcePart>) => {
+  const deduped = new Map<string, NormalizedSource>();
+
+  for (const part of parts) {
+    if (isSourceUrlPart(part)) {
+      const hostname = getHostnameFromUrl(part.url);
+      const title = part.title?.trim() || hostname || part.url;
+      const subtitle = hostname || 'Web source';
+      const dedupeKey = buildSourceDedupeKey(part.sourceId, part.url);
+
+      if (!deduped.has(dedupeKey)) {
+        deduped.set(dedupeKey, {
+          key: dedupeKey,
+          kind: 'url',
+          sourceId: part.sourceId,
+          title,
+          subtitle,
+          href: part.url,
+        });
+      }
+      continue;
+    }
+
+    if (isSourceDocumentPart(part)) {
+      const title = part.title?.trim() || part.filename || 'Document source';
+      const subtitle = part.filename || part.mediaType || 'Document source';
+      const fallback = part.filename || part.title || part.mediaType || title;
+      const dedupeKey = buildSourceDedupeKey(part.sourceId, fallback);
+
+      if (!deduped.has(dedupeKey)) {
+        deduped.set(dedupeKey, {
+          key: dedupeKey,
+          kind: 'document',
+          sourceId: part.sourceId,
+          title,
+          subtitle,
+        });
+      }
+    }
+  }
+
+  return [...deduped.values()];
+};
 
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [model, setModel] = useState<string>(models[0].value);
   const [webSearch, setWebSearch] = useState(false);
+  const [googleSearchMode, setGoogleSearchMode] = useState<GoogleSearchMode>('MODE_UNSPECIFIED');
+  const [googleSearchDynamicThreshold, setGoogleSearchDynamicThreshold] = useState<string>('1');
+  const [urlContextPreference, setUrlContextPreference] = useState<UrlContextPreference>('auto');
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     'input',
     '',
@@ -113,8 +230,23 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       router.push(`/chat/${chatId}`);
 
       // console.log(attachments) // here its empty
-      const requestedTools =
-        webSearch && !isSearchToolDisabled ? ['google_search'] : [];
+      const searchEnabled = webSearch && !isSearchToolDisabled;
+      const requestedTools = searchEnabled ? ['google_search'] : [];
+      const dynamicThreshold = normalizeDynamicThreshold(googleSearchDynamicThreshold);
+      const urlContextEnabled = urlContextPreference === 'auto'
+        ? undefined
+        : urlContextPreference === 'on';
+      const toolInputs: ToolInputsPayload = {
+        google_search: {
+          enabled: searchEnabled,
+          mode: googleSearchMode,
+          ...(dynamicThreshold !== undefined ? { dynamicThreshold } : {}),
+        },
+        url_context: {
+          ...(urlContextEnabled !== undefined ? { enabled: urlContextEnabled } : {}),
+        },
+      };
+
       await sendMessage({
         prompt: message.text || 'Sent with attachments',
         threadId: chatId,
@@ -122,6 +254,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
         body: {
           model,
           tools: requestedTools,
+          toolInputs,
         },
       });
 
@@ -131,7 +264,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     } catch (e) {
       console.error(e)
     }
-  }, [threadId, attachments, model, webSearch, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput,])
+  }, [threadId, attachments, model, webSearch, googleSearchDynamicThreshold, googleSearchMode, urlContextPreference, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput,])
 
   useEffect(() => {
     if (!input && localStorageInput) {
@@ -154,30 +287,30 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       <ChatHeader chatId={threadId} isReadonly selectedModelId='' />
       <Conversation className="h-full">
         <ConversationContent>
-          {messages.map((message) => (
-            <div key={message.id}>
-              {message.role === 'assistant' && message.parts.filter((part) => part.type === 'source-url').length > 0 && (
-                <Sources>
-                  <SourcesTrigger
-                    count={
-                      message.parts.filter(
-                        (part) => part.type === 'source-url',
-                      ).length
-                    }
-                  />
-                  {message.parts.filter((part) => part.type === 'source-url').map((part, i) => (
-                    <SourcesContent key={`${message.id}-${i}`}>
-                      <Source
-                        key={`${message.id}-${i}`}
-                        href={part.url}
-                        title={part.url}
-                      />
+          {messages.map((message) => {
+            const normalizedSources = message.role === 'assistant'
+              ? normalizeMessageSources(message.parts as ReadonlyArray<SourcePart>)
+              : [];
+
+            return (
+              <div key={message.id}>
+                {normalizedSources.length > 0 && (
+                  <Sources>
+                    <SourcesTrigger count={normalizedSources.length} />
+                    <SourcesContent>
+                      {normalizedSources.map((source) => (
+                        <Source
+                          key={`${message.id}-${source.key}`}
+                          href={source.href}
+                          subtitle={source.subtitle}
+                          title={source.title}
+                        />
+                      ))}
                     </SourcesContent>
-                  ))}
-                </Sources>
-              )}
-              {message.parts.map((part, i) => {
-                switch (part.type) {
+                  </Sources>
+                )}
+                {message.parts.map((part, i) => {
+                  switch (part.type) {
                   case 'text':
                     return (
                       <Fragment key={`${message.id}-${i}`}>
@@ -188,26 +321,24 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                             </Response>
                           </MessageContent>
                         </Message>
-                        <Dialog>
-                          {message && message.role === 'assistant' && i === messages.length - 1 ? (
-                            <Actions className="mt-2">
-                              <Action
-                              // onClick={() => regenerate()}
-                              // label="Retry"
-                              >
-                                <RefreshCcwIcon className="size-3" />
-                              </Action>
-                              <Action
-                                onClick={() =>
-                                  navigator.clipboard.writeText(part.text)
-                                }
-                              // label="Copy"
-                              >
-                                <CopyIcon className="size-3" />
-                              </Action>
-                            </Actions>
-                          ) : null}
-                        </Dialog>
+                        {message && message.role === 'assistant' && i === messages.length - 1 ? (
+                          <Actions className="mt-2">
+                            <Action
+                            // onClick={() => regenerate()}
+                            // label="Retry"
+                            >
+                              <RefreshCcwIcon className="size-3" />
+                            </Action>
+                            <Action
+                              onClick={() =>
+                                navigator.clipboard.writeText(part.text)
+                              }
+                            // label="Copy"
+                            >
+                              <CopyIcon className="size-3" />
+                            </Action>
+                          </Actions>
+                        ) : null}
                       </Fragment>
                     );
                   case 'reasoning':
@@ -238,10 +369,11 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
                   //   )
                   default:
                     return null;
-                }
-              })}
-            </div>
-          ))}
+                  }
+                })}
+              </div>
+            );
+          })}
           {messages?.[0]?.status === 'pending' && <Loader />}
         </ConversationContent>
         <ConversationScrollButton />
@@ -259,8 +391,73 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
           <PromptInputTools>
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
+              <PromptInputActionMenuContent className="w-64">
                 <PromptInputActionAddAttachments />
+                <div className="my-1 h-px bg-border" />
+                <div className="space-y-2 px-2 py-1">
+                  <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                    Tool settings
+                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">URL context</p>
+                    <Select
+                      onValueChange={(value) =>
+                        setUrlContextPreference(value as UrlContextPreference)
+                      }
+                      value={urlContextPreference}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        <SelectItem value="auto">Auto</SelectItem>
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Search mode</p>
+                    <Select
+                      disabled={!webSearch || isSearchToolDisabled}
+                      onValueChange={(value) =>
+                        setGoogleSearchMode(value as GoogleSearchMode)
+                      }
+                      value={googleSearchMode}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        <SelectItem value="MODE_UNSPECIFIED">Always retrieve</SelectItem>
+                        <SelectItem value="MODE_DYNAMIC">Dynamic retrieve</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Search threshold (0 to 1)
+                    </p>
+                    <Input
+                      className="h-8 text-xs"
+                      disabled={!webSearch || isSearchToolDisabled}
+                      max={1}
+                      min={0}
+                      onBlur={(event) => {
+                        const normalized = normalizeDynamicThreshold(event.currentTarget.value);
+                        setGoogleSearchDynamicThreshold(
+                          normalized === undefined ? '1' : normalized.toString(),
+                        );
+                      }}
+                      onChange={(event) =>
+                        setGoogleSearchDynamicThreshold(event.currentTarget.value)
+                      }
+                      step={0.05}
+                      type="number"
+                      value={googleSearchDynamicThreshold}
+                    />
+                  </div>
+                </div>
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
             <PromptInputButton
