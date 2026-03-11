@@ -208,9 +208,12 @@ const consumeToolRateLimitOrThrow = async (
     key: userId,
   });
   if (!result.ok) {
-    throw new ConvexError(
-      `tool call rate limit exceeded: ${TOOL_CALLS_PER_DAY_LIMIT} per day`,
-    );
+    throw new ConvexError({
+      kind: "RateLimited",
+      scope: "toolCallsPerDay",
+      limit: TOOL_CALLS_PER_DAY_LIMIT,
+      retryAt: result.retryAt,
+    });
   }
 };
 
@@ -223,9 +226,12 @@ const consumeThreadCreationRateLimitOrThrow = async (
     key: userId,
   });
   if (!result.ok) {
-    throw new ConvexError(
-      `thread creation rate limit exceeded: ${THREAD_CREATIONS_PER_DAY_LIMIT} per day`,
-    );
+    throw new ConvexError({
+      kind: "RateLimited",
+      scope: "threadCreationsPerDay",
+      limit: THREAD_CREATIONS_PER_DAY_LIMIT,
+      retryAt: result.retryAt,
+    });
   }
 };
 

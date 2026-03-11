@@ -63,12 +63,55 @@ type ToolInputsPayload = {
   };
 };
 
+type RateLimitErrorData = {
+  kind?: string;
+  limit?: number;
+  retryAt?: number;
+  scope?: string;
+};
+
 const normalizeDynamicThreshold = (rawValue: string) => {
   const parsed = Number.parseFloat(rawValue);
   if (!Number.isFinite(parsed)) {
     return undefined;
   }
   return Math.min(1, Math.max(0, parsed));
+};
+
+const getRateLimitMessage = (error: unknown) => {
+  const errorData =
+    typeof error === 'object' &&
+    error !== null &&
+    'data' in error &&
+    typeof (error as { data?: unknown }).data === 'object' &&
+    (error as { data?: unknown }).data !== null
+      ? ((error as { data: RateLimitErrorData }).data)
+      : undefined;
+
+  if (errorData?.kind === 'RateLimited') {
+    const limit = typeof errorData.limit === 'number' ? errorData.limit : undefined;
+    const retryAtText =
+      typeof errorData.retryAt === 'number'
+        ? ` Try again after ${new Date(errorData.retryAt).toLocaleString()}.`
+        : '';
+
+    if (errorData.scope === 'toolCallsPerDay') {
+      return `You have reached the tool call limit${limit ? ` (${limit}/day)` : ''}.${retryAtText}`;
+    }
+    if (errorData.scope === 'threadCreationsPerDay') {
+      return `You have reached the thread creation limit${limit ? ` (${limit}/day)` : ''}.${retryAtText}`;
+    }
+    return `You are being rate limited.${retryAtText}`;
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+
+  return /rate limit/i.test(message) ? message : null;
 };
 
 type SourcePart = {
@@ -168,6 +211,7 @@ const normalizeMessageSources = (parts: ReadonlyArray<SourcePart>) => {
 export const ChatLayout = ({ threadId }: { threadId: string }) => {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [model, setModel] = useState<string>(models[0].value);
   const [webSearch, setWebSearch] = useState(false);
   const [googleSearchMode, setGoogleSearchMode] = useState<GoogleSearchMode>('MODE_UNSPECIFIED');
@@ -213,6 +257,7 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
     if (runningMessageStatus === "streaming") {
       return void stopAction({ threadId })
     }
+    setSubmissionError(null);
     try {
       const hasText = Boolean(message.text);
       const hasAttachments = Boolean(message.files?.length);
@@ -262,9 +307,13 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
       setAttachments([]);
       setLocalStorageInput('');
     } catch (e) {
+      const rateLimitMessage = getRateLimitMessage(e);
+      if (rateLimitMessage) {
+        setSubmissionError(rateLimitMessage);
+      }
       console.error(e)
     }
-  }, [threadId, attachments, model, webSearch, googleSearchDynamicThreshold, googleSearchMode, urlContextPreference, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput,])
+  }, [threadId, attachments, model, webSearch, googleSearchDynamicThreshold, googleSearchMode, urlContextPreference, isSearchToolDisabled, sendMessage, setAttachments, setInput, setLocalStorageInput, runningMessageStatus, stopAction])
 
   useEffect(() => {
     if (!input && localStorageInput) {
@@ -374,6 +423,13 @@ export const ChatLayout = ({ threadId }: { threadId: string }) => {
               </div>
             );
           })}
+          {submissionError ? (
+            <Message from="assistant">
+              <MessageContent>
+                <Response className="text-destructive">{submissionError}</Response>
+              </MessageContent>
+            </Message>
+          ) : null}
           {messages?.[0]?.status === 'pending' && <Loader />}
         </ConversationContent>
         <ConversationScrollButton />
